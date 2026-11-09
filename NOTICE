@@ -1,0 +1,30 @@
+Bluetooth Phone Recorder
+========================
+
+The code in src/, tools/, tests/ and scripts/ is under the BSD 3-Clause
+licence (see LICENSE).
+
+The program includes BTstack (third_party/btstack, git submodule, release
+v1.8.3), Copyright (C) BlueKitchen GmbH. BTstack's licence is BSD-style with
+one extra condition:
+
+    4. Any redistribution, use, or modification is done solely for personal
+       benefit and not for any commercial purpose or for monetary gain.
+
+Because the built program contains BTstack, the program as a whole may only
+be used, shared and modified for non-commercial purposes. This extra
+condition is also why the project is not GPL: the GPL does not allow added
+restrictions, so GPL code cannot be combined with BTstack. For commercial use,
+BlueKitchen sells licences: https://bluekitchen-gmbh.com
+
+BTstack itself bundles:
+  - Bluedroid SBC codec (Apache 2.0)
+  - Google LC3 codec (Apache 2.0)
+  - tinydir (BSD 2-Clause)
+
+Libraries used from the system (not shipped): GTK 4 and libadwaita (LGPL 2.1+),
+PipeWire (MIT), libusb (LGPL 2.1+), libsndfile (LGPL 2.1+), speexdsp (BSD),
+zstd (BSD), xz/liblzma (0BSD), libsoup 3 and json-glib (LGPL 2.1+).
+
+Bluetooth firmware is never shipped. It is read from the system's
+/lib/firmware (linux-firmware package) and unpacked into the user's cache.

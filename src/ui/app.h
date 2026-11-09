@@ -1,0 +1,125 @@
+/*
+ * Application state shared by the UI modules.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+#ifndef BPR_APP_H
+#define BPR_APP_H
+
+#include <adwaita.h>
+#include <glib/gi18n.h>
+#include <gtk/gtk.h>
+
+#include "audio/engine.h"
+#include "bt/adapters.h"
+#include "bt/bt_engine.h"
+#include "obs/obs_ws.h"
+#include "settings.h"
+
+typedef enum {
+    CALL_IDLE,
+    CALL_INCOMING,
+    CALL_OUTGOING,
+    CALL_ACTIVE,
+} call_state_t;
+
+typedef struct strip strip_t; /* one mixer channel strip, mixer_view.c */
+
+typedef struct {
+    AdwApplication *gapp;
+    GtkWindow *window;
+    AdwToastOverlay *toasts;
+    settings_t settings;
+    engine_t *engine;
+    obs_ws_t *obs;
+    bt_adapter_t adapter;
+    bool have_adapter;
+    bool bt_started;
+    bool restart_requested;
+    char cli_adapter[320]; /* --adapter=... overrides settings */
+    bool cli_trace;
+
+    /* Bluetooth/phone state (UI thread copy) */
+    bt_state_t bt_state;
+    char bt_status[256];
+    char controller_report[2048];
+    char paired[16][18];
+    int n_paired;
+    bool phone_connected;
+    char phone_addr[18];
+    char phone_name[128];
+    char operator_name[64];
+    int battery, signal; /* 0..5, -1 unknown */
+    int ind_call, ind_callsetup, ind_callheld;
+    call_state_t call_state;
+    gint64 call_started_us;
+    char caller_number[64];
+    char caller_name[128];
+    bool audio_on_computer;
+    char codec_name[16];
+    int codec_rate;
+    bool auto_recording; /* recording was started by auto-record */
+
+    /* recording */
+    bool recording;
+    gint64 rec_started_us;
+
+    /* mixer strips; index = mixer channel */
+    strip_t *strips[MIXER_MAX_CHANNELS];
+    GtkWidget *strip_box;
+
+    /* widgets updated from state (window.c) */
+    GtkWidget *title;          /* AdwWindowTitle */
+    GtkWidget *record_btn, *record_label, *marker_btn;
+    GtkWidget *phone_status_row, *pair_switch, *paired_group;
+    GtkWidget *paired_rows[16];
+    GtkWidget *call_status, *caller_label, *call_timer, *codec_label, *phone_info;
+    GtkWidget *answer_btn, *reject_btn, *hangup_btn, *audio_btn;
+    GtkWidget *dial_entry, *dial_btn, *redial_btn, *keypad;
+    GtkWidget *disk_label, *health_label, *session_label;
+    GtkWidget *monitor_switch, *monitor_dropdown, *monitor_gain, *call_gain, *echo_switch;
+    GtkWidget *meter_full_l, *meter_full_r, *meter_call, *meter_monitor;
+    GtkCssProvider *scale_css;
+} app_t;
+
+extern app_t *APP;
+
+/* app.c */
+void app_toast(const char *text);
+void app_record_start(void);
+void app_record_stop(void);
+void app_add_marker(void);
+void app_request_restart(void);
+void app_apply_text_scale(void);
+void app_update_call_ui(void);
+void app_update_phone_ui(void);
+void app_save_mixer_settings(void);
+const char *app_adapter_status(void);
+
+/* window.c */
+void window_build(void);
+void window_refresh_paired(void);
+void window_refresh_devices(void);
+
+/* mixer_view.c */
+strip_t *strip_new(int channel);
+void strip_free(strip_t *s);
+void strip_update_meters(strip_t *s);
+void strip_refresh_devices(strip_t *s);
+void strip_toggle_send(int ordinal);  /* 1-based ordinal among input strips */
+void strip_toggle_mute(int ordinal);
+int mixer_view_add_input(const char *target, const char *label); /* channel or -1 */
+GtkWidget *mixer_view_master_section(void);
+GtkWidget *strip_widget(strip_t *s);
+void strip_save(strip_t *s, settings_input_t *out);
+int strip_channel(strip_t *s);
+
+/* dialogs.c */
+void dialog_adapter_chooser(gboolean first_run);
+void dialog_preferences(void);
+void dialog_pair_confirm(const char *addr, int number);
+void dialog_pin(const char *addr);
+void dialog_about(void);
+void dialog_shortcuts(void);
+void dialog_adapter_report(void);
+
+#endif

@@ -1,0 +1,2 @@
+option('obs_websocket', type : 'feature', value : 'auto',
+       description : 'Start and stop OBS recording through obs-websocket (needs libsoup3, json-glib)')

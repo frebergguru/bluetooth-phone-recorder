@@ -1,0 +1,818 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: bt-phone-recorder 0.1.0\n"
+"Language: nb\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "No USB Bluetooth adapters found."
+msgstr "Fant ingen USB-Bluetooth-adaptere."
+
+msgid "Usage: %s [options]\n\n  --adapter=ID        use this adapter (see --list-adapters), for this run only\n  --list-adapters     list Bluetooth adapters and exit\n  --release-adapters  give adapters left without a driver back to the system\n  --trace             save a Bluetooth trace (PacketLogger format)\n  --verbose           more log output\n  --version           show the version\n"
+msgstr "Bruk: %s [valg]\n\n  --adapter=ID        bruk denne adapteren (se --list-adapters), bare denne gangen\n  --list-adapters     vis Bluetooth-adaptere og avslutt\n  --release-adapters  gi adaptere uten driver tilbake til systemet\n  --trace             lagre et Bluetooth-spor (PacketLogger-format)\n  --verbose           mer loggutskrift\n  --version           vis versjonen\n"
+
+msgid "%d adapter(s) given back to the system.\n"
+msgstr "%d adapter(e) gitt tilbake til systemet.\n"
+
+msgid "Cannot create the recording folder %s"
+msgstr "Kan ikke lage opptaksmappen %s"
+
+msgid "Recording could not start: %s"
+msgstr "Opptaket kunne ikke starte: %s"
+
+msgid "Recording started"
+msgstr "Opptaket startet"
+
+msgid "Recording saved in %s"
+msgstr "Opptaket er lagret i %s"
+
+msgid "Open folder"
+msgstr "Åpne mappen"
+
+msgid "Recording stopped and saved"
+msgstr "Opptaket er stoppet og lagret"
+
+msgid "Markers can only be added while recording"
+msgstr "Markører kan bare legges til under opptak"
+
+msgid "Marker %d"
+msgstr "Markør %d"
+
+msgid "%s added at %02d:%02d:%02d"
+msgstr "%s lagt til ved %02d:%02d:%02d"
+
+msgid "unknown number"
+msgstr "ukjent nummer"
+
+msgid "Incoming call from %s"
+msgstr "Innkommende anrop fra %s"
+
+msgid "Incoming call"
+msgstr "Innkommende anrop"
+
+msgid "Answer"
+msgstr "Svar"
+
+msgid "Call connected"
+msgstr "Samtalen er koblet til"
+
+msgid "Call ended"
+msgstr "Samtalen er avsluttet"
+
+msgid "Starting %s"
+msgstr "Starter %s"
+
+msgid "Ready, %s (%s)"
+msgstr "Klar, %s (%s)"
+
+msgid "Adapter failed: %s"
+msgstr "Adapteren feilet: %s"
+
+msgid "Bluetooth off"
+msgstr "Bluetooth er av"
+
+msgid "Phone paired"
+msgstr "Telefonen er paret"
+
+msgid "Pairing failed. Try again from the phone's Bluetooth settings."
+msgstr "Paringen mislyktes. Prøv igjen fra Bluetooth-innstillingene på telefonen."
+
+msgid "%s connected"
+msgstr "%s er tilkoblet"
+
+msgid "%s disconnected"
+msgstr "%s er frakoblet"
+
+msgid "Phone"
+msgstr "Telefon"
+
+msgid "No call audio arrives through the kernel driver mode. This adapter may need the direct USB mode for call audio (Choose adapter)."
+msgstr "Det kommer ingen samtalelyd i kjernedriver-modus. Denne adapteren trenger kanskje direkte USB-modus for samtalelyd (Velg adapter)."
+
+msgid "The call is connected, but no audio arrives from the adapter. Save an adapter report and try another adapter or mode."
+msgstr "Samtalen er koblet til, men det kommer ingen lyd fra adapteren. Lagre en adapterrapport og prøv en annen adapter eller modus."
+
+msgid "Free space: %.1f GB (about %.0f hours)"
+msgstr "Ledig plass: %.1f GB (omtrent %.0f timer)"
+
+msgid "Warning: less than 15 minutes of recording space left"
+msgstr "Advarsel: mindre enn 15 minutter opptaksplass igjen"
+
+msgid "Audio: no dropouts"
+msgstr "Lyd: ingen utfall"
+
+msgid "Audio: %llu dropouts, %llu damaged phone packets repaired"
+msgstr "Lyd: %llu utfall, %llu skadde telefonpakker reparert"
+
+msgid "Mic %d"
+msgstr "Mikrofon %d"
+
+msgid "Audio system unavailable"
+msgstr "Lydsystemet er utilgjengelig"
+
+msgid "PipeWire could not be used: %s"
+msgstr "PipeWire kunne ikke brukes: %s"
+
+msgid "Close"
+msgstr "Lukk"
+
+msgid "No Bluetooth adapter chosen"
+msgstr "Ingen Bluetooth-adapter er valgt"
+
+msgid "Adapter %s not found"
+msgstr "Fant ikke adapteren %s"
+
+msgid "The chosen Bluetooth adapter was not found. Plug it in or choose another."
+msgstr "Fant ikke den valgte Bluetooth-adapteren. Koble den til eller velg en annen."
+
+msgid "OBS: %s"
+msgstr "OBS: %s"
+
+msgid "Connected to OBS"
+msgstr "Koblet til OBS"
+
+msgid "Pair with this phone?"
+msgstr "Pare med denne telefonen?"
+
+msgid "Check that the phone shows the code %s, then choose Pair on both the phone and here.\n\nPhone address: %s"
+msgstr "Sjekk at telefonen viser koden %s, og velg Par både på telefonen og her.\n\nTelefonadresse: %s"
+
+msgid "_Cancel"
+msgstr "_Avbryt"
+
+msgid "_Pair"
+msgstr "_Par"
+
+msgid "Pairing request, code %s"
+msgstr "Paringsforespørsel, kode %s"
+
+msgid "Enter a PIN"
+msgstr "Skriv inn en PIN-kode"
+
+msgid "This older phone asks for a PIN. Type the same PIN here and on the phone, for example 0000."
+msgstr "Denne eldre telefonen ber om en PIN-kode. Skriv den samme koden her og på telefonen, for eksempel 0000."
+
+msgid "PIN"
+msgstr "PIN-kode"
+
+msgid "Restarting to use the new adapter..."
+msgstr "Starter på nytt for å bruke den nye adapteren ..."
+
+msgid "Enter the serial port, for example /dev/ttyUSB0"
+msgstr "Skriv inn serieporten, for eksempel /dev/ttyUSB0"
+
+msgid "The kernel driver mode needs the adapter to be enabled in the system first (it has no hci device right now)."
+msgstr "Kjernedriver-modus krever at adapteren først er slått på i systemet (den har ingen hci-enhet nå)."
+
+msgid "Take over this adapter?"
+msgstr "Ta over denne adapteren?"
+
+msgid "The system uses this adapter now. While Phone Recorder runs, other Bluetooth devices on it (headphones, mouse, keyboard) will disconnect. They work again when Phone Recorder closes. A separate USB Bluetooth dongle avoids this."
+msgstr "Systemet bruker denne adapteren nå. Mens Telefonopptak kjører, blir andre Bluetooth-enheter på den (hodetelefoner, mus, tastatur) koblet fra. De virker igjen når Telefonopptak lukkes. En egen USB-Bluetooth-dongle unngår dette."
+
+msgid "_Use it"
+msgstr "_Bruk den"
+
+msgid "Choose an adapter first"
+msgstr "Velg en adapter først"
+
+msgid "%s chip, USB %04x:%04x at %s. %s"
+msgstr "%s-brikke, USB %04x:%04x på %s. %s"
+
+msgid "In use by the system now."
+msgstr "Brukes av systemet nå."
+
+msgid "Free, not used by the system."
+msgstr "Ledig, brukes ikke av systemet."
+
+msgid "Mode"
+msgstr "Modus"
+
+msgid "Direct USB (recommended)"
+msgstr "Direkte USB (anbefalt)"
+
+msgid "Kernel driver, raw access"
+msgstr "Kjernedriver, rå tilgang"
+
+msgid "Direct USB: the app talks to the adapter itself. Kernel driver: the system loads the firmware, the app gets exclusive raw access (needs the helper)."
+msgstr "Direkte USB: appen snakker med adapteren selv. Kjernedriver: systemet laster fastvaren, og appen får eksklusiv rå tilgang (krever hjelpeprogrammet)."
+
+msgid "This chip needs firmware that only the kernel driver can load, so use the kernel driver mode (needs the helper, see README)."
+msgstr "Denne brikken trenger fastvare som bare kjernedriveren kan laste, så bruk kjernedriver-modus (krever hjelpeprogrammet, se README)."
+
+msgid "No USB Bluetooth adapter found"
+msgstr "Fant ingen USB-Bluetooth-adapter"
+
+msgid "Plug in a USB Bluetooth dongle and choose Refresh."
+msgstr "Koble til en USB-Bluetooth-dongle og velg Oppdater."
+
+msgid "Choose Bluetooth adapter"
+msgstr "Velg Bluetooth-adapter"
+
+msgid "Search again"
+msgstr "Søk igjen"
+
+msgid "Refresh"
+msgstr "Oppdater"
+
+msgid "Welcome! Phone Recorder connects to your phone like a car kit. Choose the Bluetooth adapter it should use. A separate USB dongle is best, so your other Bluetooth devices keep working."
+msgstr "Velkommen! Telefonopptak kobler seg til telefonen din som et bilsett. Velg Bluetooth-adapteren den skal bruke. En egen USB-dongle er best, så de andre Bluetooth-enhetene dine fortsetter å virke."
+
+msgid "The app restarts to switch adapters."
+msgstr "Appen starter på nytt for å bytte adapter."
+
+msgid "USB adapters"
+msgstr "USB-adaptere"
+
+msgid "Serial (UART) adapter"
+msgstr "Serieadapter (UART)"
+
+msgid "Use a serial adapter"
+msgstr "Bruk en serieadapter"
+
+msgid "For Bluetooth modules on a serial port (advanced)"
+msgstr "For Bluetooth-moduler på en serieport (avansert)"
+
+msgid "Serial port"
+msgstr "Serieport"
+
+msgid "Speed (baud)"
+msgstr "Hastighet (baud)"
+
+msgid "Three-wire protocol (H5)"
+msgstr "Trelederprotokoll (H5)"
+
+msgid "Hardware flow control"
+msgstr "Maskinvare-flytkontroll"
+
+msgid "_Use this adapter"
+msgstr "_Bruk denne adapteren"
+
+msgid "Adapter report saved"
+msgstr "Adapterrapporten er lagret"
+
+msgid "Save adapter report"
+msgstr "Lagre adapterrapport"
+
+msgid "Recording folder"
+msgstr "Opptaksmappe"
+
+msgid "Preferences"
+msgstr "Innstillinger"
+
+msgid "Recording"
+msgstr "Opptak"
+
+msgid "_Change..."
+msgstr "_Endre ..."
+
+msgid "File format"
+msgstr "Filformat"
+
+msgid "WAV, 32-bit float (best for editing)"
+msgstr "WAV, 32-biters flyttall (best for redigering)"
+
+msgid "WAV, 24-bit"
+msgstr "WAV, 24-biters"
+
+msgid "FLAC, 24-bit (lossless, smaller)"
+msgstr "FLAC, 24-biters (tapsfri, mindre)"
+
+msgid "Opus (small, for quick sharing)"
+msgstr "Opus (liten, for rask deling)"
+
+msgid "Start recording when a call starts"
+msgstr "Start opptak når en samtale starter"
+
+msgid "Stop automatic recordings when the call ends"
+msgstr "Stopp automatiske opptak når samtalen slutter"
+
+msgid "Audio"
+msgstr "Lyd"
+
+msgid "Protect the full mix from clipping"
+msgstr "Beskytt hovedmiksen mot klipping"
+
+msgid "A gentle peak limiter at -1 dB on the stereo mix. Single-input tracks are never limited."
+msgstr "En mild toppbegrenser på -1 dB på stereomiksen. Spor for enkeltinnganger begrenses aldri."
+
+msgid "Bluetooth"
+msgstr "Bluetooth"
+
+msgid "Changes here take effect after a restart."
+msgstr "Endringer her virker etter en omstart."
+
+msgid "Name shown on the phone"
+msgstr "Navn som vises på telefonen"
+
+msgid "HD voice (mSBC, 16 kHz)"
+msgstr "HD-tale (mSBC, 16 kHz)"
+
+msgid "Super wideband (LC3-SWB, 32 kHz)"
+msgstr "Superbredbånd (LC3-SWB, 32 kHz)"
+
+msgid "Used when the phone supports it"
+msgstr "Brukes når telefonen støtter det"
+
+msgid "Ask the phone to skip its own noise reduction"
+msgstr "Be telefonen hoppe over sin egen støydemping"
+
+msgid "Your microphones are already clean, so the caller hears you more naturally"
+msgstr "Mikrofonene dine er allerede rene, så den som ringer hører deg mer naturlig"
+
+msgid "Secure Connections"
+msgstr "Sikre tilkoblinger (Secure Connections)"
+
+msgid "Turn off only if pairing or call audio fails with an older adapter"
+msgstr "Slå av bare hvis paring eller samtalelyd feiler med en eldre adapter"
+
+msgid "Extra firmware folder (optional)"
+msgstr "Ekstra fastvaremappe (valgfritt)"
+
+msgid "Save Bluetooth trace"
+msgstr "Lagre Bluetooth-spor"
+
+msgid "For troubleshooting. Saved in ~/.local/state/bt-phone-recorder"
+msgstr "For feilsøking. Lagres i ~/.local/state/bt-phone-recorder"
+
+msgid "OBS"
+msgstr "OBS"
+
+msgid "Audio in OBS"
+msgstr "Lyd i OBS"
+
+msgid "Always available, nothing to set up here: in OBS add an \"Audio Input Capture\" source and choose \"Phone Recorder: Full mix\", \"Phone Recorder: Caller\", \"Phone Recorder: Mix-minus\" or one of your inputs. Put them on separate OBS tracks if you want to edit them separately."
+msgstr "Alltid tilgjengelig, ingenting å sette opp her: legg til en kilde av typen \"Audio Input Capture\" i OBS og velg \"Phone Recorder: Full mix\", \"Phone Recorder: Caller\", \"Phone Recorder: Mix-minus\" eller en av inngangene dine. Legg dem på egne OBS-spor hvis du vil redigere dem hver for seg."
+
+msgid "Remote control (obs-websocket)"
+msgstr "Fjernstyring (obs-websocket)"
+
+msgid "In OBS: Tools, WebSocket Server Settings. Enable it and copy the port and password here."
+msgstr "I OBS: Verktøy, WebSocket-serverinnstillinger. Slå den på og kopier porten og passordet hit."
+
+msgid "Control OBS"
+msgstr "Styr OBS"
+
+msgid "Host"
+msgstr "Vert"
+
+msgid "Port"
+msgstr "Port"
+
+msgid "Password"
+msgstr "Passord"
+
+msgid "Start and stop OBS recording together with this app"
+msgstr "Start og stopp OBS-opptak sammen med denne appen"
+
+msgid "Add markers as OBS chapters"
+msgstr "Legg til markører som OBS-kapitler"
+
+msgid "Needs OBS 30.2 or newer and a format with chapters"
+msgstr "Krever OBS 30.2 eller nyere og et format med kapitler"
+
+msgid "Connect now"
+msgstr "Koble til nå"
+
+msgid "Accessibility"
+msgstr "Tilgjengelighet"
+
+msgid "Text size (percent)"
+msgstr "Tekststørrelse (prosent)"
+
+msgid "Also Ctrl+plus and Ctrl+minus"
+msgstr "Også Ctrl+pluss og Ctrl+minus"
+
+msgid "Start or stop recording"
+msgstr "Start eller stopp opptak"
+
+msgid "Add a marker"
+msgstr "Legg til en markør"
+
+msgid "Calls"
+msgstr "Samtaler"
+
+msgid "Decline or hang up"
+msgstr "Avvis eller legg på"
+
+msgid "Move call audio between phone and computer"
+msgstr "Flytt samtalelyden mellom telefon og datamaskin"
+
+msgid "Mixer"
+msgstr "Mikser"
+
+msgid "Input 1 to 9: heard by the caller on or off"
+msgstr "Inngang 1 til 9: hørbar for den som ringer, av eller på"
+
+msgid "Input 1 to 9: mute on or off"
+msgstr "Inngang 1 til 9: demping av eller på"
+
+msgid "Add an input"
+msgstr "Legg til en inngang"
+
+msgid "General"
+msgstr "Generelt"
+
+msgid "Larger text"
+msgstr "Større tekst"
+
+msgid "Smaller text"
+msgstr "Mindre tekst"
+
+msgid "Normal text size"
+msgstr "Normal tekststørrelse"
+
+msgid "Keyboard shortcuts"
+msgstr "Hurtigtaster"
+
+msgid "Quit"
+msgstr "Avslutt"
+
+msgid "Phone Recorder"
+msgstr "Telefonopptak"
+
+msgid "Record phone calls over Bluetooth for podcasts. Works like a car kit, with its own Bluetooth stack."
+msgstr "Ta opp telefonsamtaler over Bluetooth til podkaster. Virker som et bilsett, med sin egen Bluetooth-stakk."
+
+msgid "BTstack is free for non-commercial use only. Because Phone Recorder includes BTstack, the program as a whole may only be used and shared for non-commercial purposes. See NOTICE."
+msgstr "BTstack er bare gratis for ikke-kommersiell bruk. Fordi Telefonopptak inneholder BTstack, kan programmet som helhet bare brukes og deles til ikke-kommersielle formål. Se NOTICE."
+
+msgid "Caller"
+msgstr "Innringer"
+
+msgid "In call"
+msgstr "I samtalen"
+
+msgid "Not in call"
+msgstr "Ikke i samtalen"
+
+msgid "Send %s to the caller"
+msgstr "Send %s til den som ringer"
+
+msgid "Volume for %s"
+msgstr "Volum for %s"
+
+msgid "Left-right position for %s"
+msgstr "Venstre-høyre-plassering for %s"
+
+msgid "Mute %s"
+msgstr "Demp %s"
+
+msgid "Solo %s on the monitor"
+msgstr "Solo %s på medhøringen"
+
+msgid "Level of %s"
+msgstr "Nivå for %s"
+
+msgid "Low cut filter for %s"
+msgstr "Lavkuttfilter for %s"
+
+msgid "Noise gate for %s"
+msgstr "Støyport for %s"
+
+msgid "Input device for %s"
+msgstr "Inngangsenhet for %s"
+
+msgid "%s is now heard by the caller"
+msgstr "Den som ringer hører nå %s"
+
+msgid "%s is no longer heard by the caller (still recorded and available to OBS)"
+msgstr "Den som ringer hører ikke lenger %s (tas fortsatt opp og er tilgjengelig for OBS)"
+
+msgid "Could not open that input"
+msgstr "Kunne ikke åpne den inngangen"
+
+msgid "Inputs cannot be removed while recording"
+msgstr "Innganger kan ikke fjernes under opptak"
+
+msgid "Remove this input?"
+msgstr "Fjerne denne inngangen?"
+
+msgid "%s will be removed from the mixer."
+msgstr "%s blir fjernet fra mikseren."
+
+msgid "_Remove"
+msgstr "_Fjern"
+
+msgid "Click to rename. The name is used for the recording file and the OBS source."
+msgstr "Klikk for å gi nytt navn. Navnet brukes på opptaksfilen og OBS-kilden."
+
+msgid "The voice of the person on the phone"
+msgstr "Stemmen til personen i telefonen"
+
+msgid "Which microphone or input this channel uses"
+msgstr "Hvilken mikrofon eller inngang denne kanalen bruker"
+
+msgid "From the phone"
+msgstr "Fra telefonen"
+
+msgid "Volume (gain) of this channel"
+msgstr "Volum (forsterkning) for denne kanalen"
+
+msgid "Peak level. Aim for about -12 dB when speaking; \"CLIP\" means it is too loud."
+msgstr "Toppnivå. Sikt på omtrent -12 dB når du snakker; \"KLIPP\" betyr at det er for høyt."
+
+msgid "Left-right position in the stereo mix"
+msgstr "Venstre-høyre-plassering i stereomiksen"
+
+msgid "_Mute"
+msgstr "_Demp"
+
+msgid "Take this channel out of the mix and the call. Its own OBS source and recording track keep the sound."
+msgstr "Ta denne kanalen ut av miksen og samtalen. Dens egen OBS-kilde og opptaksspor beholder lyden."
+
+msgid "_Solo"
+msgstr "_Solo"
+
+msgid "Listen only to soloed channels on the monitor. Does not change the recording, the call or OBS."
+msgstr "Lytt bare til solo-kanaler på medhøringen. Endrer ikke opptaket, samtalen eller OBS."
+
+msgid "Whether the caller hears this input. Turning it off never removes it from OBS or the recording."
+msgstr "Om den som ringer hører denne inngangen. Å slå den av fjerner den aldri fra OBS eller opptaket."
+
+msgid "Low cut"
+msgstr "Lavkutt"
+
+msgid "Remove rumble and handling noise below 80 Hz"
+msgstr "Fjern rumling og håndteringsstøy under 80 Hz"
+
+msgid "Gate"
+msgstr "Port"
+
+msgid "Turn the channel down when nobody speaks into it"
+msgstr "Skru ned kanalen når ingen snakker i den"
+
+msgid "Remo_ve"
+msgstr "Fjer_n"
+
+msgid "Never sent back to the caller"
+msgstr "Sendes aldri tilbake til den som ringer"
+
+msgid "CLIP"
+msgstr "KLIPP"
+
+msgid "System default input"
+msgstr "Systemets standardinngang"
+
+msgid "Inputs cannot be added while recording"
+msgstr "Innganger kan ikke legges til under opptak"
+
+msgid "No more inputs can be added"
+msgstr "Det kan ikke legges til flere innganger"
+
+msgid "Outputs"
+msgstr "Utganger"
+
+msgid "Full mix, left"
+msgstr "Hovedmiks, venstre"
+
+msgid "Full mix, right"
+msgstr "Hovedmiks, høyre"
+
+msgid "Sent to caller"
+msgstr "Sendt til den som ringer"
+
+msgid "Monitor"
+msgstr "Medhøring"
+
+msgid "_Monitor (headphones)"
+msgstr "_Medhøring (hodetelefoner)"
+
+msgid "Monitor on headphones"
+msgstr "Medhøring på hodetelefoner"
+
+msgid "Monitor output device"
+msgstr "Utgangsenhet for medhøring"
+
+msgid "Monitor volume"
+msgstr "Volum for medhøring"
+
+msgid "Level sent to the caller"
+msgstr "Nivå sendt til den som ringer"
+
+msgid "_Echo cancelling"
+msgstr "_Ekkofjerning"
+
+msgid "Only needed when the caller is played on speakers. Headphones give the best sound."
+msgstr "Trengs bare når den som ringer spilles på høyttalere. Hodetelefoner gir best lyd."
+
+msgid "Echo cancelling for speakers"
+msgstr "Ekkofjerning for høyttalere"
+
+msgid "In OBS, add \"Audio Input Capture\" and pick a \"Phone Recorder\" source: Full mix, Caller, Mix-minus, or any single input."
+msgstr "I OBS legger du til \"Audio Input Capture\" og velger en \"Phone Recorder\"-kilde: Full mix, Caller, Mix-minus eller en enkelt inngang."
+
+msgid "Pairing mode on. On the phone, open Bluetooth settings and choose \"%s\"."
+msgstr "Paringsmodus er på. Åpne Bluetooth-innstillingene på telefonen og velg \"%s\"."
+
+msgid "Forget this phone?"
+msgstr "Glemme denne telefonen?"
+
+msgid "%s will have to be paired again before it can be used."
+msgstr "%s må pares på nytt før den kan brukes."
+
+msgid "_Forget"
+msgstr "_Glem"
+
+msgid "Connected"
+msgstr "Tilkoblet"
+
+msgid "Not connected"
+msgstr "Ikke tilkoblet"
+
+msgid "Disconnect"
+msgstr "Koble fra"
+
+msgid "Connect"
+msgstr "Koble til"
+
+msgid "Disconnect %s"
+msgstr "Koble fra %s"
+
+msgid "Connect %s"
+msgstr "Koble til %s"
+
+msgid "Forget this phone"
+msgstr "Glem denne telefonen"
+
+msgid "Forget %s"
+msgstr "Glem %s"
+
+msgid "No phones paired yet"
+msgstr "Ingen telefoner er paret ennå"
+
+msgid "Turn on pairing mode, then pair from the phone."
+msgstr "Slå på paringsmodus, og par deretter fra telefonen."
+
+msgid "Type a number to call"
+msgstr "Skriv inn et nummer du vil ringe"
+
+msgid "Call"
+msgstr "Samtale"
+
+msgid "No call"
+msgstr "Ingen samtale"
+
+msgid "Call status"
+msgstr "Samtalestatus"
+
+msgid "_Answer"
+msgstr "_Svar"
+
+msgid "Answer the call (Ctrl+Shift+A)"
+msgstr "Svar på anropet (Ctrl+Shift+A)"
+
+msgid "_Decline"
+msgstr "_Avvis"
+
+msgid "Decline the call (Ctrl+Shift+H)"
+msgstr "Avvis anropet (Ctrl+Shift+H)"
+
+msgid "_Hang up"
+msgstr "_Legg på"
+
+msgid "End the call (Ctrl+Shift+H)"
+msgstr "Avslutt samtalen (Ctrl+Shift+H)"
+
+msgid "Move call audio to the _computer"
+msgstr "Flytt samtalelyden til _datamaskinen"
+
+msgid "Choose whether the call audio goes through this app or the phone itself (Ctrl+Shift+T)"
+msgstr "Velg om samtalelyden går gjennom denne appen eller selve telefonen (Ctrl+Shift+T)"
+
+msgid "Make a call"
+msgstr "Ring noen"
+
+msgid "Phone number"
+msgstr "Telefonnummer"
+
+msgid "Phone number to call"
+msgstr "Telefonnummer du vil ringe"
+
+msgid "_Call"
+msgstr "_Ring"
+
+msgid "_Redial"
+msgstr "Ring _igjen"
+
+msgid "Call the last number again"
+msgstr "Ring det siste nummeret igjen"
+
+msgid "_Keypad (also sends tones during a call)"
+msgstr "_Tastatur (sender også toner under en samtale)"
+
+msgid "No phone connected"
+msgstr "Ingen telefon tilkoblet"
+
+msgid "Pairing mode"
+msgstr "Paringsmodus"
+
+msgid "Lets a new phone find this computer"
+msgstr "Lar en ny telefon finne denne datamaskinen"
+
+msgid "Paired phones"
+msgstr "Parede telefoner"
+
+msgid "Battery %d of 5"
+msgstr "Batteri %d av 5"
+
+msgid "signal %d of 5"
+msgstr "signal %d av 5"
+
+msgid "Calling..."
+msgstr "Ringer ..."
+
+msgid "In call (one call on hold)"
+msgstr "I samtale (én samtale venter)"
+
+msgid "Connect a phone to make calls"
+msgstr "Koble til en telefon for å ringe"
+
+msgid "super wideband"
+msgstr "superbredbånd"
+
+msgid "HD voice"
+msgstr "HD-tale"
+
+msgid "narrowband"
+msgstr "smalbånd"
+
+msgid "Call audio on this computer: %s, %s (%d kHz)"
+msgstr "Samtalelyd på denne datamaskinen: %s, %s (%d kHz)"
+
+msgid "Call audio is on the phone"
+msgstr "Samtalelyden er på telefonen"
+
+msgid "Move call audio to the _phone"
+msgstr "Flytt samtalelyden til _telefonen"
+
+msgid "_Stop"
+msgstr "_Stopp"
+
+msgid "_Record"
+msgstr "_Ta opp"
+
+msgid "Not recording"
+msgstr "Tar ikke opp"
+
+msgid "Stop recording (Ctrl+R)"
+msgstr "Stopp opptaket (Ctrl+R)"
+
+msgid "Start recording (Ctrl+R)"
+msgstr "Start opptak (Ctrl+R)"
+
+msgid "Recording to %s"
+msgstr "Tar opp til %s"
+
+msgid "System default output"
+msgstr "Systemets standardutgang"
+
+msgid "Quit now?"
+msgstr "Avslutte nå?"
+
+msgid "The recording will be stopped and saved. The phone call itself continues on the phone."
+msgstr "Opptaket blir stoppet og lagret. Selve samtalen fortsetter på telefonen."
+
+msgid "The phone call continues on the phone."
+msgstr "Samtalen fortsetter på telefonen."
+
+msgid "_Quit"
+msgstr "_Avslutt"
+
+msgid "_Add input"
+msgstr "_Legg til inngang"
+
+msgid "Choose Bluetooth _adapter..."
+msgstr "Velg Bluetooth-_adapter ..."
+
+msgid "Save adapter _report..."
+msgstr "Lagre adapter_rapport ..."
+
+msgid "_Preferences"
+msgstr "_Innstillinger"
+
+msgid "_Keyboard shortcuts"
+msgstr "_Hurtigtaster"
+
+msgid "_About Phone Recorder"
+msgstr "_Om Telefonopptak"
+
+msgid "_Marker"
+msgstr "_Markør"
+
+msgid "Add a marker at this point (Ctrl+M or F9)"
+msgstr "Legg til en markør her (Ctrl+M eller F9)"
+
+msgid "Main menu (F10)"
+msgstr "Hovedmeny (F10)"
+
+msgid "Main menu"
+msgstr "Hovedmeny"
+
+msgid "Add _input"
+msgstr "Legg til _inngang"
+
+msgid "Add another microphone or input (Ctrl+I)"
+msgstr "Legg til en mikrofon eller inngang til (Ctrl+I)"

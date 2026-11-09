@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>guru.freberg.BtPhoneRecorder</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>BSD-3-Clause AND LicenseRef-BTstack-noncommercial</project_license>
+  <name>Phone Recorder</name>
+  <name xml:lang="nb">Telefonopptak</name>
+  <summary>Record phone calls over Bluetooth for podcasts</summary>
+  <summary xml:lang="nb">Ta opp telefonsamtaler over Bluetooth til podkaster</summary>
+  <description>
+    <p>Phone Recorder connects to a phone like a car kit, using its own Bluetooth stack, and records the call together with your microphones on separate, sample-aligned tracks. Every source is also available to OBS as an audio source.</p>
+    <p xml:lang="nb">Telefonopptak kobler seg til en telefon som et bilsett, med sin egen Bluetooth-stakk, og tar opp samtalen sammen med mikrofonene dine på egne spor som ligger helt likt i tid. Hver kilde er også tilgjengelig for OBS som en lydkilde.</p>
+  </description>
+  <launchable type="desktop-id">guru.freberg.BtPhoneRecorder.desktop</launchable>
+  <content_rating type="oars-1.1"/>
+  <supports>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </supports>
+  <releases>
+    <release version="0.1.0" date="2026-11-09"/>
+  </releases>
+</component>

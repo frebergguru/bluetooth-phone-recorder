@@ -1,0 +1,12 @@
+# Bluetooth Phone Recorder: let the logged-in user drive USB Bluetooth adapters
+# directly (libusb), so the app needs no root rights.
+# Standard Bluetooth controllers (interface class E0/01/01):
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{ID_USB_INTERFACES}=="*:e00101:*", TAG+="uaccess"
+# Adapters with a vendor-specific class:
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="0a5c", ATTR{idProduct}=="21e8", TAG+="uaccess"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="0a5c", ATTR{idProduct}=="21e6", TAG+="uaccess"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="0a5c", ATTR{idProduct}=="21ec", TAG+="uaccess"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="0a5c", ATTR{idProduct}=="640b", TAG+="uaccess"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="0b05", ATTR{idProduct}=="17cb", TAG+="uaccess"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="04b4", ATTR{idProduct}=="f901", TAG+="uaccess"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="050d", ATTR{idProduct}=="065a", TAG+="uaccess"

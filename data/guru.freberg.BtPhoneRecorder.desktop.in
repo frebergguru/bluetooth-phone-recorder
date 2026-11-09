@@ -1,0 +1,14 @@
+[Desktop Entry]
+Name=Phone Recorder
+Name[nb]=Telefonopptak
+GenericName=Bluetooth Call Recorder
+GenericName[nb]=Bluetooth-samtaleopptak
+Comment=Record phone calls over Bluetooth for podcasts
+Comment[nb]=Ta opp telefonsamtaler over Bluetooth til podkaster
+Exec=bt-phone-recorder
+Icon=guru.freberg.BtPhoneRecorder
+Terminal=false
+Type=Application
+Categories=AudioVideo;Audio;Recorder;GTK;
+Keywords=podcast;phone;call;bluetooth;recorder;OBS;
+StartupNotify=true

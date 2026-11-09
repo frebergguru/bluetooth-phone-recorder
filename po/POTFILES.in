@@ -1,0 +1,7 @@
+src/main.c
+src/obs/obs_ws.c
+src/ui/app.c
+src/ui/dialogs.c
+src/ui/mixer_view.c
+src/ui/settings.c
+src/ui/window.c
