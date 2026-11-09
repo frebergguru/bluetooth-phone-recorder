@@ -26,6 +26,27 @@ static const struct {
     {0x0a12, 0x0001}, /* CSR8510 (normally E0/01/01, listed for safety) */
 };
 
+/* Realtek chips sold under another brand's USB ID. BTstack's firmware table
+ * only knows Realtek's own IDs (vendor 0x0bda), so these are mapped to the
+ * Realtek product ID of the same chip. IDs as in the Linux btusb driver. */
+static const struct {
+    uint16_t vid, pid, rtk_pid;
+    const char *name;
+} realtek_aliases[] = {
+    {0x2357, 0x0604, 0x8771, "TP-Link UB500 (RTL8761BU)"},
+    {0x0b05, 0x190e, 0x8771, "ASUS USB-BT500 (RTL8761BU)"},
+    {0x2550, 0x8761, 0x8771, "RTL8761BU dongle"},
+    {0x2b89, 0x8761, 0x8771, "UGREEN RTL8761BU dongle"},
+};
+
+static uint16_t realtek_alias_pid(uint16_t vid, uint16_t pid)
+{
+    for (size_t i = 0; i < sizeof realtek_aliases / sizeof realtek_aliases[0]; i++)
+        if (realtek_aliases[i].vid == vid && realtek_aliases[i].pid == pid)
+            return realtek_aliases[i].rtk_pid;
+    return 0;
+}
+
 static bool intel_uses_tlv(uint16_t pid)
 {
     switch (pid) {
@@ -44,6 +65,7 @@ static bool intel_uses_tlv(uint16_t pid)
 
 static bt_chip_family_t family_for(uint16_t vid, uint16_t pid)
 {
+    if (realtek_alias_pid(vid, pid)) return BT_CHIP_REALTEK;
     /* Realtek chips are sold under many vendor IDs: trust BTstack's table. */
     uint16_t n = btstack_chipset_realtek_get_num_usb_controllers();
     for (uint16_t i = 0; i < n; i++) {
@@ -161,8 +183,7 @@ static bool is_bluetooth(libusb_device *dev, const struct libusb_device_descript
         if (vendor_class_devices[i].vid == dd->idVendor &&
             vendor_class_devices[i].pid == dd->idProduct)
             return true;
-    if (family_for(dd->idVendor, dd->idProduct) == BT_CHIP_REALTEK && dd->idVendor != 0x0bda)
-        return true; /* in BTstack's Realtek table */
+    if (realtek_alias_pid(dd->idVendor, dd->idProduct)) return true;
     /* Composite devices: look at interface 0 */
     struct libusb_config_descriptor *cfg = NULL;
     if (libusb_get_active_config_descriptor(dev, &cfg) != 0 &&
@@ -195,6 +216,8 @@ int bt_adapters_scan(bt_adapter_t *out, int max)
         a->vid = dd.idVendor;
         a->pid = dd.idProduct;
         a->family = family_for(a->vid, a->pid);
+        a->rtk_pid = realtek_alias_pid(a->vid, a->pid);
+        if (!a->rtk_pid && a->vid == 0x0bda) a->rtk_pid = a->pid;
         a->bus = libusb_get_bus_number(list[i]);
         a->n_ports = libusb_get_port_numbers(list[i], a->ports, BT_MAX_PORTS);
         if (a->n_ports < 0) a->n_ports = 0;

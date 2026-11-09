@@ -69,7 +69,7 @@ The source names stay in English so OBS scenes keep working in any language.
 
 The app owns the adapter while it runs, so other Bluetooth devices on that
 adapter disconnect until the app closes. **A separate USB dongle is
-recommended.** The built-in adapter works too; the app asks before taking it
+recommended** (a cheap, well-supported choice: TP-Link UB500). The built-in adapter works too; the app asks before taking it
 and gives it back on exit, also after a crash (a small guard process
 re-attaches the kernel driver).
 
@@ -86,6 +86,7 @@ Two modes:
 |-------------------------------------|-------------|-------------------|-----------------|
 | CSR8510 (most cheap dongles)        | Direct USB  | none needed       | expected to work, not tested yet |
 | Realtek RTL8761B/BU, 8821C, 8822, 8852A/B/C, 8851 | Direct USB | rtl_bt from linux-firmware | detection tested (RTL8852CE), call audio not tested yet |
+| Rebranded RTL8761BU: TP-Link UB500, ASUS USB-BT500, UGREEN | Direct USB | rtl_bt (rtl8761bu) | supported via ID mapping, UB500 test pending |
 | Broadcom/Cypress BCM20702, CYW20704 | Direct USB  | brcm .hcd files   | expected to work, not tested yet |
 | Intel 8260, 8265, 9260, 9560, AX200, AX201 | Direct USB | intel ibt files | expected to work, not tested yet |
 | Intel AX210 and newer               | Kernel driver | by the kernel   | control works; call audio depends on the kernel, not tested yet |

@@ -446,7 +446,10 @@ static void hci_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, 
                 btstack_chipset_realtek_set_firmware_folder_path(dir);
                 btstack_chipset_realtek_set_config_folder_path(dir);
             }
-            btstack_chipset_realtek_set_product_id(pid);
+            /* rebranded dongles report their own ID; use the Realtek one */
+            uint16_t rtk = cfg.adapter.rtk_pid ? cfg.adapter.rtk_pid : pid;
+            if (rtk != pid) LOGI("bt", "using Realtek ID %04x for %04x:%04x", rtk, vid, pid);
+            btstack_chipset_realtek_set_product_id(rtk);
             hci_set_chipset(btstack_chipset_realtek_instance());
             hci_enable_custom_pre_init();
             ctrl.firmware_loaded = true;

@@ -44,6 +44,7 @@ typedef struct {
     char driver[32];      /* kernel driver bound to interface 0, "" if none */
     int hci_index;        /* hciN while the kernel owns it, else -1 */
     bool usb_supported;   /* the app can load this chip's firmware itself */
+    uint16_t rtk_pid;     /* Realtek product ID to use for firmware lookup (rebranded dongles) */
     /* UART only */
     char uart_path[256];
     uint32_t uart_baud;
