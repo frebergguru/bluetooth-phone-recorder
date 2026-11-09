@@ -4,3 +4,9 @@ executable('bpr-userchan-helper', 'userchan-helper.c',
   install : true,
   install_dir : get_option('libexecdir'),
 )
+
+# Headless hardware test (not installed): pair, connect, record a call.
+executable('bpr-bt-test', 'bt-test.c',
+  dependencies : [core_dep],
+  c_args : core_args,
+)

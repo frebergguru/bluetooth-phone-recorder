@@ -80,6 +80,8 @@ void bt_engine_stop(void);
 void bt_cmd_connect(const char *addr);
 void bt_cmd_disconnect(void);
 void bt_cmd_set_discoverable(bool on);
+/* Changes the name phones see, right away (max 63 bytes UTF-8). */
+void bt_cmd_set_name(const char *name);
 void bt_cmd_pair_reply(const char *addr, bool accept);
 void bt_cmd_pin_reply(const char *addr, const char *pin); /* pin NULL = cancel */
 void bt_cmd_forget(const char *addr);

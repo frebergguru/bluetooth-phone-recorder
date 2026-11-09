@@ -416,6 +416,14 @@ static GtkWidget *entry_row(const char *title, char *buf, size_t len, gboolean p
     return r;
 }
 
+static void on_pref_name_apply(AdwEntryRow *row, gpointer d)
+{
+    (void)d;
+    app_set_bluetooth_name(gtk_editable_get_text(GTK_EDITABLE(row)));
+    gtk_editable_set_text(GTK_EDITABLE(row), APP->settings.local_name);
+    if (APP->name_row) gtk_editable_set_text(GTK_EDITABLE(APP->name_row), APP->settings.local_name);
+}
+
 static void folder_chosen(GObject *src, GAsyncResult *res, gpointer row)
 {
     GFile *f = gtk_file_dialog_select_folder_finish(GTK_FILE_DIALOG(src), res, NULL);
@@ -534,10 +542,13 @@ void dialog_preferences(void)
     adw_preferences_page_set_icon_name(ADW_PREFERENCES_PAGE(p3), "bluetooth-symbolic");
     GtkWidget *g3 = adw_preferences_group_new();
     adw_preferences_group_set_description(ADW_PREFERENCES_GROUP(g3),
-                                          _("Changes here take effect after a restart."));
-    adw_preferences_group_add(ADW_PREFERENCES_GROUP(g3),
-                              entry_row(_("Name shown on the phone"), s->local_name,
-                                        sizeof s->local_name, FALSE));
+                                          _("The name changes right away. The other settings here take effect after a restart."));
+    GtkWidget *name = adw_entry_row_new();
+    adw_preferences_row_set_title(ADW_PREFERENCES_ROW(name), _("Bluetooth name (shown on the phone)"));
+    gtk_editable_set_text(GTK_EDITABLE(name), s->local_name);
+    adw_entry_row_set_show_apply_button(ADW_ENTRY_ROW(name), TRUE);
+    g_signal_connect(name, "apply", G_CALLBACK(on_pref_name_apply), NULL);
+    adw_preferences_group_add(ADW_PREFERENCES_GROUP(g3), name);
     adw_preferences_group_add(ADW_PREFERENCES_GROUP(g3),
                               switch_row(_("HD voice (mSBC, 16 kHz)"), NULL, &s->wideband));
     adw_preferences_group_add(ADW_PREFERENCES_GROUP(g3),

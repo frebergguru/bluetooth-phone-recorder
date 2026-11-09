@@ -301,12 +301,6 @@ msgstr "En mild toppbegrenser på -1 dB på stereomiksen. Spor for enkeltinngang
 msgid "Bluetooth"
 msgstr "Bluetooth"
 
-msgid "Changes here take effect after a restart."
-msgstr "Endringer her virker etter en omstart."
-
-msgid "Name shown on the phone"
-msgstr "Navn som vises på telefonen"
-
 msgid "HD voice (mSBC, 16 kHz)"
 msgstr "HD-tale (mSBC, 16 kHz)"
 
@@ -816,3 +810,24 @@ msgstr "Legg til _inngang"
 
 msgid "Add another microphone or input (Ctrl+I)"
 msgstr "Legg til en mikrofon eller inngang til (Ctrl+I)"
+
+msgid "The Bluetooth name cannot be empty"
+msgstr "Bluetooth-navnet kan ikke være tomt"
+
+msgid "The name was shortened to fit Bluetooth"
+msgstr "Navnet ble forkortet så det passer for Bluetooth"
+
+msgid "Bluetooth name changed to \"%s\""
+msgstr "Bluetooth-navnet er endret til \"%s\""
+
+msgid "Bluetooth name"
+msgstr "Bluetooth-navn"
+
+msgid "The name phones see when pairing. Phones that are already paired may show the old name until they connect again."
+msgstr "Navnet telefoner ser ved paring. Telefoner som allerede er paret, kan vise det gamle navnet til de kobler til igjen."
+
+msgid "Bluetooth name (shown on the phone)"
+msgstr "Bluetooth-navn (vises på telefonen)"
+
+msgid "The name changes right away. The other settings here take effect after a restart."
+msgstr "Navnet endres med en gang. De andre innstillingene her virker etter en omstart."

@@ -70,7 +70,7 @@ typedef struct {
     /* widgets updated from state (window.c) */
     GtkWidget *title;          /* AdwWindowTitle */
     GtkWidget *record_btn, *record_label, *marker_btn;
-    GtkWidget *phone_status_row, *pair_switch, *paired_group;
+    GtkWidget *phone_status_row, *pair_switch, *paired_group, *name_row;
     GtkWidget *paired_rows[16];
     GtkWidget *call_status, *caller_label, *call_timer, *codec_label, *phone_info;
     GtkWidget *answer_btn, *reject_btn, *hangup_btn, *audio_btn;
@@ -89,6 +89,8 @@ void app_record_start(void);
 void app_record_stop(void);
 void app_add_marker(void);
 void app_request_restart(void);
+/* Validates, saves and applies the Bluetooth name. Returns false if invalid. */
+gboolean app_set_bluetooth_name(const char *name);
 void app_apply_text_scale(void);
 void app_update_call_ui(void);
 void app_update_phone_ui(void);

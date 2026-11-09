@@ -109,7 +109,7 @@ typedef enum {
     CMD_CONNECT, CMD_DISCONNECT, CMD_DISCOVERABLE, CMD_PAIR_REPLY, CMD_PIN_REPLY, CMD_FORGET,
     CMD_LIST_PAIRED, CMD_ANSWER, CMD_REJECT, CMD_HANGUP, CMD_DIAL, CMD_REDIAL, CMD_DTMF,
     CMD_AUDIO_TO_COMPUTER, CMD_AUDIO_TO_PHONE, CMD_HOLD_ACCEPT, CMD_END_ACCEPT, CMD_QUERY_CALLS,
-    CMD_SHUTDOWN,
+    CMD_SET_NAME, CMD_SHUTDOWN,
 } cmd_type_t;
 
 typedef struct {
@@ -519,6 +519,11 @@ static void hci_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, 
         emit_paired_list();
         break;
     }
+    case HCI_EVENT_LINK_KEY_NOTIFICATION:
+        /* BTstack stores the key while handling this event, after it already
+         * reported "pairing complete": refresh the list now */
+        emit_paired_list();
+        break;
     case HCI_EVENT_REMOTE_NAME_REQUEST_COMPLETE:
         if (packet[2] == 0) {
             reverse_bd_addr(&packet[3], addr);
@@ -564,6 +569,7 @@ static void hfp_handler(uint8_t packet_type, uint16_t channel, uint8_t *event, u
         phone_connected = true;
         snprintf(cfg.auto_connect_addr, sizeof cfg.auto_connect_addr, "%s", bd_addr_to_str(addr));
         emit_addr(BT_EV_PHONE_CONNECTED, addr);
+        emit_paired_list();
         gap_discoverable_control(0);
         gap_remote_name_request(addr, 0, 0);
         hfp_hf_activate_calling_line_notification(acl_handle);
@@ -684,6 +690,12 @@ static void exec_cmd(const cmd_t *c)
         if (slc) hfp_hf_release_service_level_connection(acl_handle);
         break;
     case CMD_DISCOVERABLE: gap_discoverable_control(c->flag ? 1 : 0); break;
+    case CMD_SET_NAME:
+        /* BTstack keeps the pointer, so the name lives in a static buffer */
+        snprintf(cfg_local_name, sizeof cfg_local_name, "%s", c->text);
+        gap_set_local_name(cfg_local_name);
+        LOGI("bt", "local name set to \"%s\"", cfg_local_name);
+        break;
     case CMD_PAIR_REPLY:
         if (!has_addr) break;
         if (c->flag)
@@ -787,6 +799,7 @@ static cmd_t mk(cmd_type_t t, const char *addr, const char *text, int flag)
 void bt_cmd_connect(const char *addr) { post(mk(CMD_CONNECT, addr, NULL, 0)); }
 void bt_cmd_disconnect(void) { post(mk(CMD_DISCONNECT, NULL, NULL, 0)); }
 void bt_cmd_set_discoverable(bool on) { post(mk(CMD_DISCOVERABLE, NULL, NULL, on)); }
+void bt_cmd_set_name(const char *name) { post(mk(CMD_SET_NAME, NULL, name, 0)); }
 void bt_cmd_pair_reply(const char *addr, bool accept) { post(mk(CMD_PAIR_REPLY, addr, NULL, accept)); }
 void bt_cmd_pin_reply(const char *addr, const char *pin)
 {
@@ -859,6 +872,9 @@ static void stack_init(void)
                                          LM_LINK_POLICY_ENABLE_SNIFF_MODE);
     gap_set_allow_role_switch(true);
     gap_ssp_set_io_capability(SSP_IO_CAPABILITY_DISPLAY_YES_NO);
+    /* BTstack confirms numeric comparison by itself unless told not to: the
+     * user must see and confirm the code */
+    gap_ssp_set_auto_accept(0);
     gap_ssp_set_authentication_requirement(SSP_IO_AUTHREQ_MITM_PROTECTION_REQUIRED_GENERAL_BONDING);
     gap_secure_connections_enable(cfg.secure_connections);
     hci_set_sco_voice_setting(0x60); /* 16-bit linear PCM for CVSD */

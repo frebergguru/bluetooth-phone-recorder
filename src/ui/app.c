@@ -129,6 +129,28 @@ void app_add_marker(void)
     app_toast(msg);
 }
 
+gboolean app_set_bluetooth_name(const char *name)
+{
+    char clean[64];
+    snprintf(clean, sizeof clean, "%s", name ? name : "");
+    g_strstrip(clean);
+    /* snprintf may have cut a multi-byte character in half */
+    const char *end = NULL;
+    if (!g_utf8_validate(clean, -1, &end)) clean[end - clean] = 0;
+    if (!clean[0]) {
+        app_toast(_("The Bluetooth name cannot be empty"));
+        return FALSE;
+    }
+    if (strlen(name) > sizeof clean - 1) app_toast(_("The name was shortened to fit Bluetooth"));
+    snprintf(APP->settings.local_name, sizeof APP->settings.local_name, "%s", clean);
+    settings_save(&APP->settings);
+    if (APP->bt_started) bt_cmd_set_name(clean);
+    char msg[160];
+    snprintf(msg, sizeof msg, _("Bluetooth name changed to \"%s\""), clean);
+    app_toast(msg);
+    return TRUE;
+}
+
 void app_request_restart(void)
 {
     APP->restart_requested = true;

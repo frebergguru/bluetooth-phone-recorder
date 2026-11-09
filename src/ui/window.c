@@ -46,6 +46,14 @@ static void on_pair_switch(GObject *sw, GParamSpec *ps, gpointer d)
     }
 }
 
+static void on_name_apply(AdwEntryRow *row, gpointer d)
+{
+    (void)d;
+    /* show the name actually in use (cleaned up, or the old one if rejected) */
+    app_set_bluetooth_name(gtk_editable_get_text(GTK_EDITABLE(row)));
+    gtk_editable_set_text(GTK_EDITABLE(row), APP->settings.local_name);
+}
+
 static void on_connect_clicked(GtkButton *b, gpointer addr)
 {
     (void)b;
@@ -280,6 +288,17 @@ static GtkWidget *build_phone_panel(void)
     adw_preferences_row_set_title(ADW_PREFERENCES_ROW(APP->phone_status_row), _("No phone connected"));
     adw_action_row_set_subtitle_lines(ADW_ACTION_ROW(APP->phone_status_row), 3);
     adw_preferences_group_add(ADW_PREFERENCES_GROUP(phone), APP->phone_status_row);
+    GtkWidget *name_row = adw_entry_row_new();
+    adw_preferences_row_set_title(ADW_PREFERENCES_ROW(name_row), _("Bluetooth name"));
+    gtk_editable_set_text(GTK_EDITABLE(name_row), APP->settings.local_name);
+    gtk_editable_set_max_width_chars(GTK_EDITABLE(name_row), 63);
+    adw_entry_row_set_show_apply_button(ADW_ENTRY_ROW(name_row), TRUE);
+    gtk_widget_set_tooltip_text(name_row, _("The name phones see when pairing. Phones that are "
+                                            "already paired may show the old name until they "
+                                            "connect again."));
+    g_signal_connect(name_row, "apply", G_CALLBACK(on_name_apply), NULL);
+    APP->name_row = name_row;
+    adw_preferences_group_add(ADW_PREFERENCES_GROUP(phone), name_row);
     GtkWidget *pair_row = adw_action_row_new();
     adw_preferences_row_set_title(ADW_PREFERENCES_ROW(pair_row), _("Pairing mode"));
     adw_action_row_set_subtitle(ADW_ACTION_ROW(pair_row),
