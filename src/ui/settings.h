@@ -56,8 +56,9 @@ typedef struct {
     gboolean obs_sync_record;
     gboolean obs_chapters;
 
-    /* accessibility */
+    /* accessibility and language */
     int text_scale_percent; /* 100..200 */
+    char language[16];      /* "" = follow the system, "en", "nb" */
 } settings_t;
 
 void settings_defaults(settings_t *s);

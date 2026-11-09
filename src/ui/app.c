@@ -27,9 +27,17 @@ void app_toast(const char *text)
     adw_toast_overlay_add_toast(APP->toasts, t);
 }
 
-static void announce(const char *text, GtkAccessibleAnnouncementPriority prio)
+void app_announce(const char *text, GtkAccessibleAnnouncementPriority prio)
 {
-    if (APP->window) gtk_accessible_announce(GTK_ACCESSIBLE(APP->window), text, prio);
+    /* gtk_accessible_announce() crashes (NULL vfunc) when GTK runs without
+     * its AT-SPI backend (GTK_A11Y=none, Broadway, some sandboxes). Only
+     * announce when a real AT-SPI context exists. */
+    if (!APP->window) return;
+    GtkATContext *ctx = gtk_accessible_get_at_context(GTK_ACCESSIBLE(APP->window));
+    if (!ctx) return;
+    gboolean atspi = g_str_equal(G_OBJECT_TYPE_NAME(ctx), "GtkAtSpiContext");
+    g_object_unref(ctx);
+    if (atspi) gtk_accessible_announce(GTK_ACCESSIBLE(APP->window), text, prio);
 }
 
 const char *app_adapter_status(void)
@@ -88,7 +96,7 @@ void app_record_start(void)
     APP->recording = true;
     APP->rec_started_us = g_get_monotonic_time();
     if (s->obs_enabled && s->obs_sync_record) obs_ws_start_record(APP->obs);
-    announce(_("Recording started"), GTK_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_MEDIUM);
+    app_announce(_("Recording started"), GTK_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_MEDIUM);
     app_update_call_ui();
 }
 
@@ -107,7 +115,7 @@ void app_record_stop(void)
     adw_toast_set_action_name(t, "app.open-session");
     adw_toast_set_timeout(t, 10);
     adw_toast_overlay_add_toast(APP->toasts, t);
-    announce(_("Recording stopped and saved"), GTK_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_MEDIUM);
+    app_announce(_("Recording stopped and saved"), GTK_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_MEDIUM);
     app_update_call_ui();
 }
 
@@ -186,7 +194,7 @@ static void set_call_state(call_state_t st)
                           : APP->caller_number[0] ? APP->caller_number
                                                   : _("unknown number");
         snprintf(msg, sizeof msg, _("Incoming call from %s"), who);
-        announce(msg, GTK_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_HIGH);
+        app_announce(msg, GTK_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_HIGH);
         if (APP->window && !gtk_window_is_active(APP->window)) {
             GNotification *n = g_notification_new(_("Incoming call"));
             g_notification_set_body(n, who);
@@ -203,7 +211,7 @@ static void set_call_state(call_state_t st)
         if (!APP->call_timer_running) {
             APP->call_timer_running = true;
             APP->call_started_us = g_get_monotonic_time();
-            announce(_("Call connected"), GTK_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_MEDIUM);
+            app_announce(_("Call connected"), GTK_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_MEDIUM);
             if (APP->settings.auto_record && !APP->recording) {
                 app_record_start();
                 APP->auto_recording = APP->recording;
@@ -216,7 +224,7 @@ static void set_call_state(call_state_t st)
     if (st == CALL_IDLE) {
         APP->call_timer_running = false;
         g_application_withdraw_notification(G_APPLICATION(APP->gapp), "call");
-        if (old == CALL_ACTIVE) announce(_("Call ended"), GTK_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_MEDIUM);
+        if (old == CALL_ACTIVE) app_announce(_("Call ended"), GTK_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_MEDIUM);
         APP->caller_number[0] = APP->caller_name[0] = 0;
         if (APP->auto_recording && APP->settings.auto_stop) app_record_stop();
     }
@@ -299,7 +307,7 @@ static void handle_bt_event(const bt_event_t *ev)
         APP->battery = APP->signal = -1;
         char msg[200];
         snprintf(msg, sizeof msg, _("%s connected"), APP->phone_name);
-        announce(msg, GTK_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_MEDIUM);
+        app_announce(msg, GTK_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_MEDIUM);
         app_update_phone_ui();
         window_refresh_paired();
         break;
@@ -594,6 +602,16 @@ static void act_mute(GSimpleAction *a, GVariant *p, gpointer d)
     (void)a; (void)d;
     strip_toggle_mute(g_variant_get_int32(p));
 }
+static void act_restart(GSimpleAction *a, GVariant *p, gpointer d)
+{
+    (void)a; (void)p; (void)d;
+    if (APP->recording) {
+        app_toast(_("Stop the recording first, then restart"));
+        return;
+    }
+    app_request_restart();
+}
+
 static void act_open_session(GSimpleAction *a, GVariant *p, gpointer d)
 {
     (void)a; (void)p; (void)d;
@@ -625,6 +643,7 @@ static const GActionEntry app_actions[] = {
     {"send-to-call", act_send, "i", NULL, NULL, {0}},
     {"mute", act_mute, "i", NULL, NULL, {0}},
     {"open-session", act_open_session, NULL, NULL, NULL, {0}},
+    {"restart", act_restart, NULL, NULL, NULL, {0}},
 };
 
 static void setup_accels(GtkApplication *app)
@@ -705,23 +724,52 @@ static void apply_audio_settings(void)
 
 /* Debug aid for headless checks: BPR_SCREENSHOT=/path/file.png renders the
  * main window (and any dialog inside it) to a PNG a few seconds after start. */
-static gboolean take_screenshot(gpointer path)
+gboolean app_save_screenshot(const char *path)
 {
     GtkWidget *win = GTK_WIDGET(APP->window);
-    int w = gtk_widget_get_width(win), h = gtk_widget_get_height(win);
-    GdkPaintable *p = gtk_widget_paintable_new(win);
+    /* The window's content also holds any open dialog. On Broadway a viewer
+     * must be connected, otherwise no frames are drawn and the snapshot is
+     * empty (scripts/make-doc-screenshots.sh connects one). */
+    GtkWidget *src = gtk_widget_get_first_child(win) ? gtk_widget_get_first_child(win) : win;
+    int w = gtk_widget_get_width(src), h = gtk_widget_get_height(src);
+    GdkPaintable *p = gtk_widget_paintable_new(src);
     GtkSnapshot *snap = gtk_snapshot_new();
     gdk_paintable_snapshot(p, snap, w, h);
+    g_object_unref(p);
     GskRenderNode *node = gtk_snapshot_free_to_node(snap);
+    gboolean ok = FALSE;
+    if (!node || w <= 0 || h <= 0)
+        LOGW("app", "screenshot: nothing to draw (%dx%d, mapped %d, child mapped %d)", w, h,
+             gtk_widget_get_mapped(win), gtk_widget_get_mapped(src));
     if (node) {
-        GskRenderer *r = gtk_native_get_renderer(GTK_NATIVE(win));
-        GdkTexture *tex = gsk_renderer_render_texture(r, node, &GRAPHENE_RECT_INIT(0, 0, w, h));
-        gdk_texture_save_to_png(tex, path);
-        LOGI("app", "screenshot saved to %s", (const char *)path);
-        g_object_unref(tex);
+        /* a private software renderer works on every backend (Broadway's
+         * own renderer cannot produce textures) */
+        GskRenderer *r = gsk_cairo_renderer_new();
+        GError *err = NULL;
+        gboolean realized = gsk_renderer_realize_for_display(r, gtk_widget_get_display(win), &err);
+        if (!realized) {
+            LOGW("app", "screenshot renderer: %s", err ? err->message : "?");
+            g_clear_error(&err);
+            realized = gsk_renderer_realize(r, NULL, NULL); /* offscreen fallback */
+        }
+        if (realized) {
+            GdkTexture *tex = gsk_renderer_render_texture(r, node, &GRAPHENE_RECT_INIT(0, 0, w, h));
+            if (tex) {
+                ok = gdk_texture_save_to_png(tex, path);
+                g_object_unref(tex);
+            }
+            gsk_renderer_unrealize(r);
+        }
+        g_object_unref(r);
         gsk_render_node_unref(node);
     }
-    g_object_unref(p);
+    return ok;
+}
+
+static gboolean take_screenshot(gpointer path)
+{
+    if (app_save_screenshot(path)) LOGI("app", "screenshot saved to %s", (const char *)path);
+    g_free(path);
     return G_SOURCE_REMOVE;
 }
 
@@ -785,6 +833,12 @@ static void on_activate(GApplication *gapp, gpointer d)
     g_timeout_add(500, slow_tick, NULL);
     const char *shot = g_getenv("BPR_SCREENSHOT");
     if (shot && *shot) g_timeout_add(4000, take_screenshot, g_strdup(shot));
+
+    const char *docs = g_getenv("BPR_DOC_SHOTS");
+    if (docs && *docs) {
+        docshots_start(docs); /* demo data, no Bluetooth */
+        return;
+    }
 
     const char *id = APP->cli_adapter[0] ? APP->cli_adapter : APP->settings.adapter_id;
     if (!id[0]) {

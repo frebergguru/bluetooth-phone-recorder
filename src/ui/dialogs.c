@@ -36,7 +36,7 @@ void dialog_pair_confirm(const char *addr, int number)
     adw_dialog_present(dlg, GTK_WIDGET(APP->window));
     char ann[128];
     snprintf(ann, sizeof ann, _("Pairing request, code %s"), num);
-    gtk_accessible_announce(GTK_ACCESSIBLE(APP->window), ann,
+    app_announce(ann,
                             GTK_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_HIGH);
 }
 
@@ -467,6 +467,22 @@ static void on_text_scale(AdwSpinRow *row, GParamSpec *ps, gpointer d)
     settings_save(&APP->settings);
 }
 
+static void on_language(AdwComboRow *row, GParamSpec *ps, gpointer d)
+{
+    (void)ps;
+    (void)d;
+    static const char *codes[] = {"", "en", "nb"};
+    guint sel = adw_combo_row_get_selected(row);
+    if (sel >= G_N_ELEMENTS(codes) || strcmp(APP->settings.language, codes[sel]) == 0) return;
+    snprintf(APP->settings.language, sizeof APP->settings.language, "%s", codes[sel]);
+    settings_save(&APP->settings);
+    AdwToast *t = adw_toast_new(_("The new language is used after a restart"));
+    adw_toast_set_button_label(t, _("Restart now"));
+    adw_toast_set_action_name(t, "app.restart");
+    adw_toast_set_timeout(t, 0);
+    adw_toast_overlay_add_toast(APP->toasts, t);
+}
+
 static void on_obs_reconnect(GtkButton *b, gpointer d)
 {
     (void)b;
@@ -494,6 +510,7 @@ void dialog_preferences(void)
 
     /* Recording */
     GtkWidget *p1 = adw_preferences_page_new();
+    adw_preferences_page_set_name(ADW_PREFERENCES_PAGE(p1), "recording");
     adw_preferences_page_set_title(ADW_PREFERENCES_PAGE(p1), _("Recording"));
     adw_preferences_page_set_icon_name(ADW_PREFERENCES_PAGE(p1), "media-record-symbolic");
     GtkWidget *g1 = adw_preferences_group_new();
@@ -526,6 +543,7 @@ void dialog_preferences(void)
 
     /* Audio */
     GtkWidget *p2 = adw_preferences_page_new();
+    adw_preferences_page_set_name(ADW_PREFERENCES_PAGE(p2), "audio");
     adw_preferences_page_set_title(ADW_PREFERENCES_PAGE(p2), _("Audio"));
     adw_preferences_page_set_icon_name(ADW_PREFERENCES_PAGE(p2), "audio-volume-high-symbolic");
     GtkWidget *g2 = adw_preferences_group_new();
@@ -538,6 +556,7 @@ void dialog_preferences(void)
 
     /* Bluetooth */
     GtkWidget *p3 = adw_preferences_page_new();
+    adw_preferences_page_set_name(ADW_PREFERENCES_PAGE(p3), "bluetooth");
     adw_preferences_page_set_title(ADW_PREFERENCES_PAGE(p3), _("Bluetooth"));
     adw_preferences_page_set_icon_name(ADW_PREFERENCES_PAGE(p3), "bluetooth-symbolic");
     GtkWidget *g3 = adw_preferences_group_new();
@@ -576,6 +595,7 @@ void dialog_preferences(void)
 
     /* OBS */
     GtkWidget *p4 = adw_preferences_page_new();
+    adw_preferences_page_set_name(ADW_PREFERENCES_PAGE(p4), "obs");
     adw_preferences_page_set_title(ADW_PREFERENCES_PAGE(p4), _("OBS"));
     adw_preferences_page_set_icon_name(ADW_PREFERENCES_PAGE(p4), "camera-video-symbolic");
     GtkWidget *g4a = adw_preferences_group_new();
@@ -618,8 +638,27 @@ void dialog_preferences(void)
 
     /* Accessibility */
     GtkWidget *p5 = adw_preferences_page_new();
-    adw_preferences_page_set_title(ADW_PREFERENCES_PAGE(p5), _("Accessibility"));
+    adw_preferences_page_set_name(ADW_PREFERENCES_PAGE(p5), "accessibility");
+    adw_preferences_page_set_title(ADW_PREFERENCES_PAGE(p5), _("Language and accessibility"));
     adw_preferences_page_set_icon_name(ADW_PREFERENCES_PAGE(p5), "preferences-desktop-accessibility-symbolic");
+    GtkWidget *glang = adw_preferences_group_new();
+    adw_preferences_group_set_title(ADW_PREFERENCES_GROUP(glang), _("Language"));
+    GtkWidget *lang = adw_combo_row_new();
+    adw_preferences_row_set_title(ADW_PREFERENCES_ROW(lang), _("Language of the app"));
+    adw_action_row_set_subtitle(ADW_ACTION_ROW(lang), _("Takes effect after a restart"));
+    GtkStringList *langs = gtk_string_list_new(NULL);
+    gtk_string_list_append(langs, _("System default"));
+    /* language names are shown in their own language, never translated */
+    gtk_string_list_append(langs, "English");
+    gtk_string_list_append(langs, "Norsk bokmål");
+    adw_combo_row_set_model(ADW_COMBO_ROW(lang), G_LIST_MODEL(langs));
+    g_object_unref(langs);
+    guint lang_sel = strcmp(s->language, "en") == 0 ? 1 : strcmp(s->language, "nb") == 0 ? 2 : 0;
+    adw_combo_row_set_selected(ADW_COMBO_ROW(lang), lang_sel);
+    g_signal_connect(lang, "notify::selected", G_CALLBACK(on_language), NULL);
+    adw_preferences_group_add(ADW_PREFERENCES_GROUP(glang), lang);
+    adw_preferences_page_add(ADW_PREFERENCES_PAGE(p5), ADW_PREFERENCES_GROUP(glang));
+
     GtkWidget *g5 = adw_preferences_group_new();
     GtkWidget *scale = adw_spin_row_new_with_range(100, 200, 10);
     adw_preferences_row_set_title(ADW_PREFERENCES_ROW(scale), _("Text size (percent)"));

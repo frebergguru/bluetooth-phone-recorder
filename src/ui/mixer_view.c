@@ -126,7 +126,7 @@ static void on_toggle(GtkToggleButton *b, strip_t *s)
                                      : _("%s is no longer heard by the caller (still recorded and "
                                          "available to OBS)"),
                  strip_name(s));
-        gtk_accessible_announce(GTK_ACCESSIBLE(APP->window), msg,
+        app_announce(msg,
                                 GTK_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_MEDIUM);
     } else if (GTK_WIDGET(b) == s->hpf)
         atomic_store(&c->hpf, on);

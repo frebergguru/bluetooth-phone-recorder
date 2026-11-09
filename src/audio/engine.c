@@ -222,7 +222,11 @@ static endpoint_t *endpoint_create(engine_t *e, ep_dir_t dir, int channels, bool
     params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat, &info);
 
     enum pw_stream_flags flags = PW_STREAM_FLAG_MAP_BUFFERS | PW_STREAM_FLAG_RT_PROCESS;
-    if (!is_virtual) flags |= PW_STREAM_FLAG_AUTOCONNECT;
+    /* BPR_NO_DEVICE_LINKS=1 (tests, documentation screenshots): device
+     * streams are created but never linked, so no real sound card or
+     * headset is ever opened. */
+    const char *no_links = getenv("BPR_NO_DEVICE_LINKS");
+    if (!is_virtual && !(no_links && *no_links == '1')) flags |= PW_STREAM_FLAG_AUTOCONNECT;
     int res = pw_stream_connect(ep->stream,
                                 dir == EP_INPUT ? PW_DIRECTION_INPUT : PW_DIRECTION_OUTPUT,
                                 PW_ID_ANY, flags, params, 1);

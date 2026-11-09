@@ -9,7 +9,7 @@ config_inc = include_directories('.')
 
 ui_src = files(
   '../main.c',
-  'app.c', 'window.c', 'mixer_view.c', 'dialogs.c', 'settings.c',
+  'app.c', 'window.c', 'mixer_view.c', 'dialogs.c', 'settings.c', 'docshots.c',
   '../obs/obs_ws.c',
 )
 

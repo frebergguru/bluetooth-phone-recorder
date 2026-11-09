@@ -154,6 +154,7 @@ void settings_load(settings_t *s)
     get_bool(kf, "obs", "chapters", &s->obs_chapters);
 
     get_int(kf, "accessibility", "text-scale", &s->text_scale_percent);
+    get_str(kf, "accessibility", "language", s->language, sizeof s->language);
     if (s->text_scale_percent < 100) s->text_scale_percent = 100;
     if (s->text_scale_percent > 200) s->text_scale_percent = 200;
 
@@ -211,6 +212,7 @@ void settings_save(const settings_t *s)
     g_key_file_set_boolean(kf, "obs", "chapters", s->obs_chapters);
 
     g_key_file_set_integer(kf, "accessibility", "text-scale", s->text_scale_percent);
+    g_key_file_set_string(kf, "accessibility", "language", s->language);
 
     char *path = settings_path();
     GError *err = NULL;

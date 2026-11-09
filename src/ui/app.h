@@ -86,6 +86,8 @@ extern app_t *APP;
 
 /* app.c */
 void app_toast(const char *text);
+/* Tell screen readers (safe when no screen reader backend exists). */
+void app_announce(const char *text, GtkAccessibleAnnouncementPriority prio);
 void app_record_start(void);
 void app_record_stop(void);
 void app_add_marker(void);
@@ -96,6 +98,10 @@ void app_apply_text_scale(void);
 void app_update_call_ui(void);
 void app_update_phone_ui(void);
 void app_save_mixer_settings(void);
+gboolean app_save_screenshot(const char *path);
+
+/* docshots.c: BPR_DOC_SHOTS=<dir> renders the documentation pictures */
+void docshots_start(const char *dir);
 const char *app_adapter_status(void);
 
 /* window.c */

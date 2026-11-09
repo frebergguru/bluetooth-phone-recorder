@@ -17,8 +17,25 @@
 #include "config.h"
 #include "core/log.h"
 #include "core/paths.h"
+#include "ui/settings.h"
 
 int app_run(int argc, char **argv, const char *cli_adapter, bool cli_trace);
+
+/* The language chosen in Preferences overrides the desktop language. gettext
+ * ignores LANGUAGE while messages run in the "C" locale, so switch the
+ * message locale to a matching UTF-8 locale when needed. */
+static void apply_language_setting(void)
+{
+    settings_t s;
+    settings_load(&s);
+    if (!s.language[0]) return;
+    setenv("LANGUAGE", s.language, 1);
+    const char *cur = setlocale(LC_MESSAGES, NULL);
+    if (cur && (strcmp(cur, "C") == 0 || strcmp(cur, "POSIX") == 0 || strncmp(cur, "C.", 2) == 0)) {
+        const char *want = strcmp(s.language, "nb") == 0 ? "nb_NO.UTF-8" : "en_US.UTF-8";
+        if (!setlocale(LC_MESSAGES, want)) setlocale(LC_MESSAGES, "C.UTF-8");
+    }
+}
 
 static void list_adapters(void)
 {
@@ -58,6 +75,7 @@ int main(int argc, char **argv)
     signal(SIGPIPE, SIG_IGN);
 
     setlocale(LC_ALL, "");
+    apply_language_setting();
     bindtextdomain(GETTEXT_PACKAGE, BPR_LOCALEDIR);
     bind_textdomain_codeset(GETTEXT_PACKAGE, "UTF-8");
     textdomain(GETTEXT_PACKAGE);

@@ -370,9 +370,6 @@ msgstr "Krever OBS 30.2 eller nyere og et format med kapitler"
 msgid "Connect now"
 msgstr "Koble til nå"
 
-msgid "Accessibility"
-msgstr "Tilgjengelighet"
-
 msgid "Text size (percent)"
 msgstr "Tekststørrelse (prosent)"
 
@@ -834,3 +831,27 @@ msgstr "Bluetooth-navn (vises på telefonen)"
 
 msgid "The name changes right away. The other settings here take effect after a restart."
 msgstr "Navnet endres med en gang. De andre innstillingene her virker etter en omstart."
+
+msgid "Language"
+msgstr "Språk"
+
+msgid "Language of the app"
+msgstr "Språk i appen"
+
+msgid "Takes effect after a restart"
+msgstr "Virker etter en omstart"
+
+msgid "System default"
+msgstr "Systemets standard"
+
+msgid "The new language is used after a restart"
+msgstr "Det nye språket brukes etter en omstart"
+
+msgid "Restart now"
+msgstr "Start på nytt nå"
+
+msgid "Language and accessibility"
+msgstr "Språk og tilgjengelighet"
+
+msgid "Stop the recording first, then restart"
+msgstr "Stopp opptaket først, og start deretter på nytt"
