@@ -64,7 +64,6 @@ btstack_src = files(
   bt / 'platform/posix/btstack_run_loop_posix.c', bt / 'platform/posix/btstack_tlv_posix.c',
   bt / 'platform/posix/hci_dump_posix_fs.c', bt / 'platform/posix/btstack_uart_posix.c',
   bt / 'platform/libusb/hci_transport_h2_libusb.c',
-  bt / 'chipset/realtek/btstack_chipset_realtek.c',
   bt / 'chipset/intel/btstack_chipset_intel_firmware.c',
   bt / 'chipset/bcm/btstack_chipset_bcm.c',
 )
@@ -81,6 +80,17 @@ foreach f : ['attdet', 'bits', 'bwdet', 'energy', 'lc3', 'ltpf', 'mdct', 'plc', 
              'tables', 'tns']
   btstack_src += files(bt / '3rd-party/lc3-google/src' / f + '.c')
 endforeach
+
+# Small fixes to BTstack live in patches/ and are applied to copies in the
+# build folder, so the submodule stays pristine and easy to update. A patch
+# that no longer applies stops the build.
+patch_prog = find_program('patch')
+btstack_src += custom_target('btstack_chipset_realtek_patched',
+  input : [bt / 'chipset/realtek/btstack_chipset_realtek.c',
+           'patches/0001-realtek-ignore-stale-card-info-reply.patch'],
+  output : 'btstack_chipset_realtek.c',
+  command : [patch_prog, '--quiet', '--forward', '-o', '@OUTPUT@', '@INPUT0@', '@INPUT1@'],
+)
 
 # Third-party code: build it as upstream intends, without our warning level.
 btstack_lib = static_library('btstack', btstack_src,

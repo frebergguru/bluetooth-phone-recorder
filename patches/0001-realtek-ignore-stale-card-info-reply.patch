@@ -1,0 +1,14 @@
+--- a/chipset/realtek/btstack_chipset_realtek.c
++++ b/chipset/realtek/btstack_chipset_realtek.c
+@@ -1268,7 +1268,10 @@
+                     chipset_prepare_download();
+                     break;
+                 default:
+-                    btstack_assert(false);
++                    // A stale reply (e.g. left on the USB event endpoint by the kernel
++                    // driver before the adapter was handed over) can arrive after the
++                    // state machine moved on. Ignore it instead of aborting.
++                    log_info("Read Card: ignoring unexpected reply in state %u", state);
+                     break;
+             }
+             break;
