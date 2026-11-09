@@ -727,10 +727,9 @@ static void apply_audio_settings(void)
 gboolean app_save_screenshot(const char *path)
 {
     GtkWidget *win = GTK_WIDGET(APP->window);
-    /* The window's content also holds any open dialog. On Broadway a viewer
-     * must be connected, otherwise no frames are drawn and the snapshot is
-     * empty (scripts/make-doc-screenshots.sh connects one). */
-    GtkWidget *src = gtk_widget_get_first_child(win) ? gtk_widget_get_first_child(win) : win;
+    /* The whole window, so its background and any open dialog are included.
+     * Needs a backend that draws frames (Wayland/X11, not Broadway). */
+    GtkWidget *src = win;
     int w = gtk_widget_get_width(src), h = gtk_widget_get_height(src);
     GdkPaintable *p = gtk_widget_paintable_new(src);
     GtkSnapshot *snap = gtk_snapshot_new();

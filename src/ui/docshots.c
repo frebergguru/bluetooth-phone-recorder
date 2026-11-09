@@ -12,6 +12,8 @@
 #include <math.h>
 
 #include "app.h"
+#include <stdlib.h>
+
 #include "core/log.h"
 
 static char *shot_dir;
@@ -21,13 +23,20 @@ static double t;
 
 #define DEMO_PHONE_ADDR "00:00:5E:00:53:01" /* documentation address range */
 
+static bool shot_failed;
+
 static void shot(const char *name)
 {
+    /* no stray text selection or focus ring in the background */
+    AdwDialog *open = adw_application_window_get_visible_dialog(ADW_APPLICATION_WINDOW(APP->window));
+    if (!open) gtk_window_set_focus(APP->window, NULL);
     char *path = g_build_filename(shot_dir, name, NULL);
-    if (app_save_screenshot(path))
+    if (app_save_screenshot(path)) {
         LOGI("docs", "saved %s", path);
-    else
-        LOGE("docs", "could not save %s", path);
+    } else {
+        LOGW("docs", "%s not ready yet, retrying", name);
+        shot_failed = true;
+    }
     g_free(path);
 }
 
@@ -95,6 +104,11 @@ static void fill_demo_state(void)
     app_record_start();
     APP->rec_started_us = g_get_monotonic_time() - (gint64)1012 * G_USEC_PER_SEC;
     app_update_call_ui();
+    /* the real path contains the user's home folder: show a neutral one */
+    char shown[256];
+    snprintf(shown, sizeof shown, _("Recording to %s"),
+             "~/Music/Podcast recordings/2026-11-10_14-30-00");
+    gtk_label_set_text(GTK_LABEL(APP->session_label), shown);
 }
 
 static gboolean next_step(gpointer d)
@@ -109,6 +123,7 @@ static gboolean next_step(gpointer d)
     case 1:
         shot("adapter-chooser.png");
         close_dialog();
+        gtk_window_set_focus(APP->window, NULL);
         dialog_pair_confirm(DEMO_PHONE_ADDR, 482913);
         break;
     case 2:
@@ -145,7 +160,13 @@ static gboolean next_step(gpointer d)
         break;
     }
     case 10:
+        /* the shortcuts dialog is large: give it extra time if needed */
         shot("keyboard-shortcuts.png");
+        if (shot_failed) {
+            shot_failed = false;
+            step--;
+            return G_SOURCE_CONTINUE;
+        }
         close_dialog();
         dialog_about();
         break;
@@ -153,12 +174,23 @@ static gboolean next_step(gpointer d)
         shot("about.png");
         close_dialog();
         break;
-    default:
+    default: {
+        /* BPR_DOC_HOLD=<seconds>: stay up (virtual sources present) so
+         * OBS can be photographed using them */
+        const char *hold = g_getenv("BPR_DOC_HOLD");
+        static bool holding;
+        if (hold && atoi(hold) > 0 && !holding) {
+            holding = true;
+            LOGI("docs", "all screenshots done, holding %s s", hold);
+            g_timeout_add_seconds((guint)atoi(hold), next_step, NULL);
+            return G_SOURCE_REMOVE;
+        }
         if (meter_source) g_source_remove(meter_source);
         app_record_stop();
         LOGI("docs", "all screenshots done");
         g_application_quit(G_APPLICATION(APP->gapp));
         return G_SOURCE_REMOVE;
+    }
     }
     return G_SOURCE_CONTINUE;
 }
@@ -166,6 +198,8 @@ static gboolean next_step(gpointer d)
 void docshots_start(const char *dir)
 {
     shot_dir = g_strdup(dir);
+    gtk_window_set_focus(APP->window, NULL);
+    gtk_window_maximize(APP->window); /* fills the 1600x940 virtual screen */
     g_mkdir_with_parents(shot_dir, 0755);
     fill_demo_state();
     meter_source = g_timeout_add(33, fake_meters, NULL);

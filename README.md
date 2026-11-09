@@ -1,5 +1,7 @@
 # Bluetooth Phone Recorder
 
+![Phone Recorder during a call: call card on the left, mixer with Caller, Host, Co-host and Music bed on the right](docs/images/main-window.png)
+
 Record phone calls over Bluetooth for podcasts. The computer connects to the
 phone the way a car kit does (Bluetooth Hands-Free Profile), so any call on
 the phone, including WhatsApp, Signal and other calling apps, comes through
@@ -8,6 +10,8 @@ sample-aligned tracks and are also available to OBS.
 
 Written in C for Linux, with GTK 4 / libadwaita, PipeWire and its own
 Bluetooth stack (BTstack). It does **not** use BlueZ or bluetoothd.
+
+**Guides:** [User guide](docs/user-guide.md) · [OBS guide](docs/obs-guide.md) · [Building](BUILD.md)
 
 ## What to expect about sound quality
 

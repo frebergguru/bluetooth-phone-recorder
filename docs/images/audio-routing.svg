@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="560" viewBox="0 0 980 560" font-family="Cantarell, 'Noto Sans', 'DejaVu Sans', sans-serif" font-size="15">
+  <title>How audio flows through Phone Recorder</title>
+  <desc>The phone call (caller) and every microphone go into the mixer. The mixer sends: the full mix and every single source to the recording files and to OBS; the full mix to the monitor headphones; and the mix-minus (all inputs switched "In call", never the caller) back to the phone.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1d1d1f"/>
+    </marker>
+    <style>
+      .box { fill: #ffffff; stroke: #1d1d1f; stroke-width: 2; rx: 12; }
+      .in  { fill: #e8f1fd; }
+      .mix { fill: #fdf3e1; }
+      .out { fill: #e9f7ef; }
+      .back{ fill: #fbe9eb; }
+      .t   { fill: #1d1d1f; }
+      .h   { font-weight: bold; font-size: 17px; }
+      .s   { font-size: 13px; fill: #3d3d40; }
+      .line{ stroke: #1d1d1f; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+      .dash{ stroke-dasharray: 7 5; }
+    </style>
+  </defs>
+  <rect width="980" height="560" fill="#ffffff"/>
+  <text x="490" y="34" text-anchor="middle" class="t h" font-size="20">How audio flows through Phone Recorder</text>
+
+  <!-- inputs -->
+  <rect class="box in" x="30" y="80" width="230" height="78"/>
+  <text x="145" y="112" text-anchor="middle" class="t h">Caller (phone)</text>
+  <text x="145" y="136" text-anchor="middle" class="s">over Bluetooth, 8 to 32 kHz</text>
+
+  <rect class="box in" x="30" y="190" width="230" height="78"/>
+  <text x="145" y="222" text-anchor="middle" class="t h">Microphones</text>
+  <text x="145" y="246" text-anchor="middle" class="s">Host, Co-host, ...</text>
+
+  <rect class="box in" x="30" y="300" width="230" height="78"/>
+  <text x="145" y="332" text-anchor="middle" class="t h">Other inputs</text>
+  <text x="145" y="356" text-anchor="middle" class="s">music bed, jingles, ...</text>
+
+  <!-- mixer -->
+  <rect class="box mix" x="370" y="120" width="230" height="220"/>
+  <text x="485" y="160" text-anchor="middle" class="t h">Mixer</text>
+  <text x="485" y="190" text-anchor="middle" class="s">gain, pan, mute, solo,</text>
+  <text x="485" y="210" text-anchor="middle" class="s">low cut, gate</text>
+  <text x="485" y="245" text-anchor="middle" class="s">"In call" switch per input:</text>
+  <text x="485" y="265" text-anchor="middle" class="s">only decides what the</text>
+  <text x="485" y="285" text-anchor="middle" class="s">caller hears</text>
+
+  <path class="line" d="M260,119 L366,170"/>
+  <path class="line" d="M260,229 L366,229"/>
+  <path class="line" d="M260,339 L366,290"/>
+
+  <!-- outputs -->
+  <rect class="box out" x="710" y="62" width="240" height="88"/>
+  <text x="830" y="94" text-anchor="middle" class="t h">Recording files</text>
+  <text x="830" y="118" text-anchor="middle" class="s">full mix + caller + one</text>
+  <text x="830" y="136" text-anchor="middle" class="s">track per input</text>
+
+  <rect class="box out" x="710" y="170" width="240" height="100"/>
+  <text x="830" y="202" text-anchor="middle" class="t h">OBS sources</text>
+  <text x="830" y="226" text-anchor="middle" class="s">Phone Recorder: Full mix,</text>
+  <text x="830" y="244" text-anchor="middle" class="s">Caller, Mix-minus,</text>
+  <text x="830" y="262" text-anchor="middle" class="s">one per input</text>
+
+  <rect class="box out" x="710" y="290" width="240" height="70"/>
+  <text x="830" y="322" text-anchor="middle" class="t h">Monitor</text>
+  <text x="830" y="344" text-anchor="middle" class="s">your headphones</text>
+
+  <path class="line" d="M600,170 L706,110"/>
+  <path class="line" d="M600,220 L706,220"/>
+  <path class="line" d="M600,275 L706,320"/>
+
+  <!-- mix-minus back to phone -->
+  <rect class="box back" x="370" y="430" width="460" height="92"/>
+  <text x="600" y="462" text-anchor="middle" class="t h">Mix-minus back to the phone</text>
+  <text x="600" y="486" text-anchor="middle" class="s">every input switched "In call" (never the caller,</text>
+  <text x="600" y="504" text-anchor="middle" class="s">so the caller does not hear an echo of themselves)</text>
+  <path class="line" d="M485,340 L485,426"/>
+  <path class="line dash" d="M370,476 L12,476 L12,119 L26,119"/>
+  <text x="190" y="468" text-anchor="middle" class="s">back to the caller</text>
+</svg>
