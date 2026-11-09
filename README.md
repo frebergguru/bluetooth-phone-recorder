@@ -107,6 +107,8 @@ If an adapter misbehaves, use **Menu, Save adapter report**, and turn on
 
 ## Building
 
+Full instructions, including cleaning and release builds: [BUILD.md](BUILD.md).
+
 Dependencies (Arch/Manjaro names): `gtk4 libadwaita pipewire libusb
 libsndfile speexdsp zstd xz libsoup3 json-glib meson ninja`.
 

@@ -1,6 +1,8 @@
 /*
  * Recorder: files open back with libsndfile, tracks are aligned and have the
- * right length, markers are written. Runs in the build folder.
+ * right length, markers are written (also as WAV cue points), and a second
+ * session started in the same second gets its own folder. Runs in the build
+ * folder.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <dirent.h>
@@ -48,6 +50,14 @@ static void check_session(const char *dir, const char *ext, int frames_expected)
         sf_seek(sf, 4800, SEEK_SET);
         sf_readf_float(sf, buf, 1);
         CHECK(fabsf(buf[0]) > 0.0f || strstr(de->d_name, "silent"));
+        if (strcmp(ext, "wav") == 0) {
+            /* the marker added after block 100 sits at frame 101 * 240 */
+            SF_CUES cues;
+            memset(&cues, 0, sizeof cues);
+            CHECK(sf_command(sf, SFC_GET_CUE, &cues, sizeof cues) == SF_TRUE);
+            CHECK(cues.cue_count == 1);
+            CHECK(cues.cue_points[0].sample_offset == 101 * 240);
+        }
         sf_close(sf);
     }
     closedir(d);
@@ -87,11 +97,13 @@ static int record(rec_format_t fmt, char *dir_out, size_t len)
 
 int main(void)
 {
-    char dir[1024];
+    char dir[1024], dir2[1024];
     CHECK(record(REC_FMT_WAV_FLOAT, dir, sizeof dir) == 0);
     check_session(dir, "wav", 96000);
-    sleep(1); /* session folders are named by the second */
-    CHECK(record(REC_FMT_FLAC_24, dir, sizeof dir) == 0);
-    check_session(dir, "flac", 96000);
+    /* right away, most likely in the same second: must not reuse the folder */
+    CHECK(record(REC_FMT_FLAC_24, dir2, sizeof dir2) == 0);
+    CHECK(strcmp(dir, dir2) != 0);
+    check_session(dir2, "flac", 96000);
+    check_session(dir, "wav", 96000); /* the first session is untouched */
     TEST_DONE();
 }

@@ -141,7 +141,7 @@ gboolean app_set_bluetooth_name(const char *name)
         app_toast(_("The Bluetooth name cannot be empty"));
         return FALSE;
     }
-    if (strlen(name) > sizeof clean - 1) app_toast(_("The name was shortened to fit Bluetooth"));
+    if (name && strlen(name) > sizeof clean - 1) app_toast(_("The name was shortened to fit Bluetooth"));
     snprintf(APP->settings.local_name, sizeof APP->settings.local_name, "%s", clean);
     settings_save(&APP->settings);
     if (APP->bt_started) bt_cmd_set_name(clean);
@@ -197,18 +197,24 @@ static void set_call_state(call_state_t st)
         }
     }
     if (st == CALL_ACTIVE) {
-        APP->call_started_us = g_get_monotonic_time();
         g_application_withdraw_notification(G_APPLICATION(APP->gapp), "call");
-        announce(_("Call connected"), GTK_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_MEDIUM);
-        if (APP->settings.auto_record && !APP->recording) {
-            app_record_start();
-            APP->auto_recording = APP->recording;
+        /* Back from a waiting second call: the same call goes on, so keep
+         * its timer and do not announce or auto-start anything again. */
+        if (!APP->call_timer_running) {
+            APP->call_timer_running = true;
+            APP->call_started_us = g_get_monotonic_time();
+            announce(_("Call connected"), GTK_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_MEDIUM);
+            if (APP->settings.auto_record && !APP->recording) {
+                app_record_start();
+                APP->auto_recording = APP->recording;
+            }
+            /* Some phones keep the audio on the handset when the call was
+             * answered there: bring it to the computer. */
+            if (!APP->audio_on_computer) bt_cmd_audio_to_computer();
         }
-        /* Some phones keep the audio on the handset when the call was
-         * answered there: bring it to the computer. */
-        if (!APP->audio_on_computer) bt_cmd_audio_to_computer();
     }
     if (st == CALL_IDLE) {
+        APP->call_timer_running = false;
         g_application_withdraw_notification(G_APPLICATION(APP->gapp), "call");
         if (old == CALL_ACTIVE) announce(_("Call ended"), GTK_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_MEDIUM);
         APP->caller_number[0] = APP->caller_name[0] = 0;
@@ -218,6 +224,8 @@ static void set_call_state(call_state_t st)
 
 static void recompute_call_state(void)
 {
+    /* The active call ended (a waiting one may still ring). */
+    if (APP->ind_call != 1) APP->call_timer_running = false;
     if (APP->ind_callsetup == 1)
         set_call_state(CALL_INCOMING);
     else if (APP->ind_callsetup == 2 || APP->ind_callsetup == 3)
@@ -521,12 +529,18 @@ static void act_marker(GSimpleAction *a, GVariant *p, gpointer d) { (void)a; (vo
 static void act_answer(GSimpleAction *a, GVariant *p, gpointer d)
 {
     (void)a; (void)p; (void)d;
-    if (APP->call_state == CALL_INCOMING) bt_cmd_answer();
+    if (APP->call_state != CALL_INCOMING) return;
+    if (APP->ind_call == 1)
+        bt_cmd_hold_and_accept(); /* waiting call: hold the current call, take the new one */
+    else
+        bt_cmd_answer();
 }
 static void act_hangup(GSimpleAction *a, GVariant *p, gpointer d)
 {
     (void)a; (void)p; (void)d;
-    if (APP->call_state == CALL_INCOMING)
+    if (APP->call_state == CALL_INCOMING && APP->ind_call == 1)
+        bt_cmd_reject_waiting(); /* AT+CHUP here would end the call already in progress */
+    else if (APP->call_state == CALL_INCOMING)
         bt_cmd_reject();
     else if (APP->call_state != CALL_IDLE)
         bt_cmd_hangup();
@@ -724,9 +738,14 @@ static void on_activate(GApplication *gapp, gpointer d)
     APP->engine = engine_new(&cb);
     char err[256];
     if (!APP->engine || engine_start(APP->engine, err, sizeof err) != 0) {
+        bool have_engine = APP->engine != NULL;
+        /* No engine means no strips: on_shutdown must not save an empty
+         * mixer over the user's saved inputs. */
+        engine_free(APP->engine);
+        APP->engine = NULL;
         AdwAlertDialog *dlg = ADW_ALERT_DIALOG(adw_alert_dialog_new(_("Audio system unavailable"), NULL));
         adw_alert_dialog_format_body(dlg, _("PipeWire could not be used: %s"),
-                                     APP->engine ? err : "out of memory");
+                                     have_engine ? err : "out of memory");
         adw_alert_dialog_add_response(dlg, "close", _("Close"));
         GtkWidget *win = adw_application_window_new(GTK_APPLICATION(gapp));
         gtk_window_present(GTK_WINDOW(win));

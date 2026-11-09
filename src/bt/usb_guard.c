@@ -75,7 +75,7 @@ static void guard_main(int rfd)
     while (in && fgets(line, sizeof line, in)) {
         if (strncmp(line, "TAKE ", 5) == 0) {
             unsigned b;
-            char path[128];
+            char path[128] = ""; /* "TAKE <bus> " with no ports leaves it unset */
             if (sscanf(line + 5, "%u %127s", &b, path) >= 1) {
                 bus = (uint8_t)b;
                 n_ports = 0;

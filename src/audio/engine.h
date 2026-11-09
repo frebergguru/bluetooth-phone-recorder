@@ -44,6 +44,8 @@ typedef struct {
     void *ud;
 } engine_callbacks_t;
 
+/* All functions below except the getters for stats and the mixer are control
+ * functions: call them from one thread only (the UI thread). */
 engine_t *engine_new(const engine_callbacks_t *cb);
 int engine_start(engine_t *e, char *err, size_t err_len);
 void engine_free(engine_t *e);

@@ -430,11 +430,16 @@ void window_refresh_devices(void)
         int n = engine_list_devices(APP->engine, false, devs, 64);
         GtkStringList *list = gtk_string_list_new(NULL);
         gtk_string_list_append(list, _("System default output"));
+        char **names = g_new0(char *, (gsize)n + 2); /* row -> node name, row 0 = default */
+        names[0] = g_strdup("");
         guint sel = 0;
         for (int i = 0; i < n; i++) {
             gtk_string_list_append(list, devs[i].description);
+            names[i + 1] = g_strdup(devs[i].name);
             if (strcmp(devs[i].name, APP->settings.monitor_target) == 0) sel = (guint)i + 1;
         }
+        g_object_set_data_full(G_OBJECT(APP->monitor_dropdown), "names", names,
+                               (GDestroyNotify)g_strfreev);
         g_object_set_data(G_OBJECT(APP->monitor_dropdown), "updating", GINT_TO_POINTER(1));
         gtk_drop_down_set_model(GTK_DROP_DOWN(APP->monitor_dropdown), G_LIST_MODEL(list));
         gtk_drop_down_set_selected(GTK_DROP_DOWN(APP->monitor_dropdown), sel);

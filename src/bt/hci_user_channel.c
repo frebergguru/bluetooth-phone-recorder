@@ -20,6 +20,8 @@
 #include "btstack_run_loop.h"
 #include "hci.h"
 
+#include "../core/log.h"
+
 #ifndef BPR_LIBEXECDIR
 #define BPR_LIBEXECDIR "/usr/local/libexec"
 #endif
@@ -111,13 +113,18 @@ void hci_user_channel_set_socket(int fd)
 
 static void process(btstack_data_source_t *ds, btstack_data_source_callback_type_t type)
 {
-    (void)ds;
     if (type != DATA_SOURCE_CALLBACK_READ) return;
     ssize_t n = read(sock, packet, HCI_INCOMING_PACKET_BUFFER_SIZE + 1);
-    if (n <= 1) {
-        if (n < 0 && errno != EAGAIN) log_error("user channel read: %s", strerror(errno));
+    if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)) return;
+    if (n <= 0) {
+        /* The adapter went away (unplugged, or the kernel took it back). The
+         * socket stays readable forever now, so stop polling it instead of
+         * spinning at full CPU and flooding the log. */
+        LOGE("bt", "user channel closed: %s", n < 0 ? strerror(errno) : "end of file");
+        btstack_run_loop_disable_data_source_callbacks(ds, DATA_SOURCE_CALLBACK_READ);
         return;
     }
+    if (n == 1) return;
     packet_handler(packet[0], &packet[1], (uint16_t)(n - 1));
 }
 

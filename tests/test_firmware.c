@@ -43,6 +43,12 @@ int main(void)
     CHECK(write_file("fw-test.bin.zst", z, zlen) == 0);
     CHECK(bt_firmware_unpack_file("fw-test.bin.zst", "fw-test-out-zst") == 0);
     CHECK(same_as_data("fw-test-out-zst"));
+    /* truncated .zst files must fail, not hang (a cut inside the frame
+     * header used to loop forever) */
+    CHECK(write_file("fw-cut.bin.zst", z, 6) == 0);
+    CHECK(bt_firmware_unpack_file("fw-cut.bin.zst", "fw-cut-out") != 0);
+    CHECK(write_file("fw-cut.bin.zst", z, zlen / 2) == 0);
+    CHECK(bt_firmware_unpack_file("fw-cut.bin.zst", "fw-cut-out") != 0);
     free(z);
 
     /* xz */
@@ -54,6 +60,8 @@ int main(void)
     CHECK(write_file("fw-test.bin.xz", x, xlen) == 0);
     CHECK(bt_firmware_unpack_file("fw-test.bin.xz", "fw-test-out-xz") == 0);
     CHECK(same_as_data("fw-test-out-xz"));
+    CHECK(write_file("fw-cut.bin.xz", x, xlen / 2) == 0);
+    CHECK(bt_firmware_unpack_file("fw-cut.bin.xz", "fw-cut-out") != 0);
     free(x);
 
     /* plain */

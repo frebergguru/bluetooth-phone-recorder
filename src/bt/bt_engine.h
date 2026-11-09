@@ -95,6 +95,7 @@ void bt_cmd_dtmf(char digit);
 void bt_cmd_audio_to_computer(void);
 void bt_cmd_audio_to_phone(void);
 void bt_cmd_hold_and_accept(void); /* AT+CHLD=2: hold active, accept waiting */
+void bt_cmd_reject_waiting(void);  /* AT+CHLD=0: decline a waiting call, keep the active one */
 void bt_cmd_end_and_accept(void);  /* AT+CHLD=1 */
 void bt_cmd_query_calls(void);
 

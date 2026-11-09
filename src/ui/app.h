@@ -52,6 +52,7 @@ typedef struct {
     int ind_call, ind_callsetup, ind_callheld;
     call_state_t call_state;
     gint64 call_started_us;
+    bool call_timer_running; /* a call is up; stays true while a second call waits */
     char caller_number[64];
     char caller_name[128];
     bool audio_on_computer;

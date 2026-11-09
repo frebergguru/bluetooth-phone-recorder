@@ -5,6 +5,7 @@
 #include <getopt.h>
 #include <glib/gi18n.h>
 #include <locale.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -52,6 +53,9 @@ int main(int argc, char **argv)
 {
     /* The USB guard must be forked before any thread exists. */
     usb_guard_start();
+    /* A write to the guard's pipe after the guard died must report EPIPE,
+     * not kill the app (and with it a running recording). */
+    signal(SIGPIPE, SIG_IGN);
 
     setlocale(LC_ALL, "");
     bindtextdomain(GETTEXT_PACKAGE, BPR_LOCALEDIR);

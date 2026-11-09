@@ -109,6 +109,7 @@ typedef enum {
     CMD_CONNECT, CMD_DISCONNECT, CMD_DISCOVERABLE, CMD_PAIR_REPLY, CMD_PIN_REPLY, CMD_FORGET,
     CMD_LIST_PAIRED, CMD_ANSWER, CMD_REJECT, CMD_HANGUP, CMD_DIAL, CMD_REDIAL, CMD_DTMF,
     CMD_AUDIO_TO_COMPUTER, CMD_AUDIO_TO_PHONE, CMD_HOLD_ACCEPT, CMD_END_ACCEPT, CMD_QUERY_CALLS,
+    CMD_REJECT_WAITING,
     CMD_SET_NAME, CMD_SHUTDOWN,
 } cmd_type_t;
 
@@ -525,7 +526,7 @@ static void hci_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, 
         emit_paired_list();
         break;
     case HCI_EVENT_REMOTE_NAME_REQUEST_COMPLETE:
-        if (packet[2] == 0) {
+        if (size >= 9 + 248 && packet[2] == 0) {
             reverse_bd_addr(&packet[3], addr);
             bt_event_t ev = {.type = BT_EV_REMOTE_NAME};
             snprintf(ev.addr, sizeof ev.addr, "%s", bd_addr_to_str(addr));
@@ -576,6 +577,14 @@ static void hfp_handler(uint8_t packet_type, uint16_t channel, uint8_t *event, u
         if (cfg.disable_phone_nrec) hfp_hf_deactivate_echo_canceling_and_noise_reduction(acl_handle);
         break;
     case HFP_SUBEVENT_SERVICE_LEVEL_CONNECTION_RELEASED:
+        if (sco_handle != HCI_CON_HANDLE_INVALID) {
+            /* no "audio released" came first (link loss): end the audio too,
+             * so the mixer stops waiting for caller audio */
+            btstack_run_loop_remove_timer(&silence_timer);
+            sco_handle = HCI_CON_HANDLE_INVALID;
+            phone_link_end(cfg.link);
+            emit_simple(BT_EV_AUDIO_DISCONNECTED, NULL);
+        }
         acl_handle = HCI_CON_HANDLE_INVALID;
         phone_connected = false;
         connecting = false;
@@ -730,6 +739,7 @@ static void exec_cmd(const cmd_t *c)
     case CMD_AUDIO_TO_PHONE: if (slc) hfp_hf_release_audio_connection(acl_handle); break;
     case CMD_HOLD_ACCEPT: if (slc) hfp_hf_swap_calls(acl_handle); break;
     case CMD_END_ACCEPT: if (slc) hfp_hf_end_active_and_accept_other(acl_handle); break;
+    case CMD_REJECT_WAITING: if (slc) hfp_hf_user_busy(acl_handle); break;
     case CMD_QUERY_CALLS: if (slc) hfp_hf_query_current_call_status(acl_handle); break;
     case CMD_SHUTDOWN:
         shutting_down = true;
@@ -821,6 +831,7 @@ void bt_cmd_audio_to_computer(void) { post(mk(CMD_AUDIO_TO_COMPUTER, NULL, NULL,
 void bt_cmd_audio_to_phone(void) { post(mk(CMD_AUDIO_TO_PHONE, NULL, NULL, 0)); }
 void bt_cmd_hold_and_accept(void) { post(mk(CMD_HOLD_ACCEPT, NULL, NULL, 0)); }
 void bt_cmd_end_and_accept(void) { post(mk(CMD_END_ACCEPT, NULL, NULL, 0)); }
+void bt_cmd_reject_waiting(void) { post(mk(CMD_REJECT_WAITING, NULL, NULL, 0)); }
 void bt_cmd_query_calls(void) { post(mk(CMD_QUERY_CALLS, NULL, NULL, 0)); }
 
 /* ------------------------------------------------------------------ */
@@ -963,6 +974,10 @@ static void *bt_main(void *arg)
 
     shutting_down = true;
     hci_close(); /* closes the transport (USB, socket or serial port) */
+    if (sco_handle != HCI_CON_HANDLE_INVALID) {
+        sco_handle = HCI_CON_HANDLE_INVALID;
+        phone_link_end(cfg.link);
+    }
     atomic_store(&run_loop_ready, false);
     if (a->transport == BT_TRANSPORT_USB) usb_guard_release();
     if (cfg_trace[0]) hci_dump_posix_fs_close();

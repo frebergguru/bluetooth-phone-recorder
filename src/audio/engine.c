@@ -354,15 +354,11 @@ static void phone_update_rates(engine_t *e)
     LOGI("audio", "phone audio at %u Hz", rate);
 }
 
+/* Mixer thread, io_lock held. The canceller is created by
+ * engine_set_echo_cancel() on the UI thread, never here. */
 static void echo_cancel_block(engine_t *e, float *call, const float *caller)
 {
-    if (!e->echo) {
-        e->echo = speex_echo_state_init(ENGINE_BLOCK, ECHO_TAIL);
-        int rate = ENGINE_RATE;
-        speex_echo_ctl(e->echo, SPEEX_ECHO_SET_SAMPLING_RATE, &rate);
-        e->echo_pp = speex_preprocess_state_init(ENGINE_BLOCK, ENGINE_RATE);
-        speex_preprocess_ctl(e->echo_pp, SPEEX_PREPROCESS_SET_ECHO_STATE, e->echo);
-    }
+    if (!e->echo || !e->echo_pp) return;
     spx_int16_t mic[ENGINE_BLOCK], ref[ENGINE_BLOCK], out[ENGINE_BLOCK];
     for (int i = 0; i < ENGINE_BLOCK; i++) {
         float m = call[i] * 32767.0f, r = caller ? caller[i] * 32767.0f : 0.0f;
@@ -402,13 +398,15 @@ static void mix_block(engine_t *e)
     }
     io.direct[ENGINE_CALLER_CH] = direct[ENGINE_CALLER_CH];
 
-    /* inputs */
+    /* inputs. Every direct buffer is handed to the mixer, which zeroes the
+     * ones of inactive channels: a recording track whose input was removed
+     * then gets silence instead of its last block repeated. */
     for (int c = 1; c < MIXER_MAX_CHANNELS; c++) {
+        io.direct[c] = direct[c];
         input_t *in = &e->inputs[c];
         if (!in->capture) continue;
         ars_pull(in->capture->rs, &in->capture->ring, in_buf[c], n);
         io.in[c] = in_buf[c];
-        io.direct[c] = direct[c];
     }
     io.full_l = full_l;
     io.full_r = full_r;
@@ -438,8 +436,10 @@ static void mix_block(engine_t *e)
     for (int c = 1; c < MIXER_MAX_CHANNELS; c++)
         if (e->inputs[c].vsrc) push_out(e->inputs[c].vsrc, direct[c], n);
 
-    /* recorder: stereo buffer still holds the full mix */
-    if (recorder_is_running(e->rec)) {
+    /* recorder: stereo buffer still holds the full mix. rec_tracks is set
+     * only once the recorder is fully started, so all tracks and the frame
+     * counter begin on the same block. */
+    if (e->rec_tracks > 0 && recorder_is_running(e->rec)) {
         for (int t = 0; t < e->rec_tracks; t++) {
             int src = e->rec_map[t];
             if (src < 0)
@@ -491,15 +491,30 @@ engine_t *engine_new(const engine_callbacks_t *cb)
     if (!e) return NULL;
     if (cb) e->cb = *cb;
     pthread_mutex_init(&e->dev_lock, NULL);
-    pthread_mutex_init(&e->io_lock, NULL);
+    /* The real-time mixer thread takes io_lock every block: priority
+     * inheritance keeps a UI thread holding it from being preempted. */
+    pthread_mutexattr_t ma;
+    pthread_mutexattr_init(&ma);
+    pthread_mutexattr_setprotocol(&ma, PTHREAD_PRIO_INHERIT);
+    pthread_mutex_init(&e->io_lock, &ma);
+    pthread_mutexattr_destroy(&ma);
     mixer_init(&e->mixer, ENGINE_RATE);
     mixer_channel_setup(&e->mixer, ENGINE_CALLER_CH, MIX_CH_CALLER);
     e->timer_fd = -1;
     if (phone_link_init(&e->link) != 0) {
+        pthread_mutex_destroy(&e->dev_lock);
+        pthread_mutex_destroy(&e->io_lock);
         free(e);
         return NULL;
     }
     e->rec = recorder_new();
+    if (!e->rec) {
+        phone_link_free(&e->link);
+        pthread_mutex_destroy(&e->dev_lock);
+        pthread_mutex_destroy(&e->io_lock);
+        free(e);
+        return NULL;
+    }
     return e;
 }
 
@@ -734,6 +749,33 @@ int engine_set_monitor(engine_t *e, bool enabled, const char *target)
 
 void engine_set_echo_cancel(engine_t *e, bool on)
 {
+    if (on) {
+        /* Allocate here (UI thread), not in the real-time mixer thread. */
+        SpeexEchoState *st = NULL;
+        SpeexPreprocessState *pp = NULL;
+        if (!e->echo) {
+            st = speex_echo_state_init(ENGINE_BLOCK, ECHO_TAIL);
+            pp = speex_preprocess_state_init(ENGINE_BLOCK, ENGINE_RATE);
+            if (!st || !pp) {
+                if (pp) speex_preprocess_state_destroy(pp);
+                if (st) speex_echo_state_destroy(st);
+                LOGW("audio", "cannot create the echo canceller");
+                return;
+            }
+            int rate = ENGINE_RATE;
+            speex_echo_ctl(st, SPEEX_ECHO_SET_SAMPLING_RATE, &rate);
+            speex_preprocess_ctl(pp, SPEEX_PREPROCESS_SET_ECHO_STATE, st);
+        }
+        pthread_mutex_lock(&e->io_lock);
+        if (st) {
+            e->echo = st;
+            e->echo_pp = pp;
+        } else {
+            /* turned on again: start from a clean filter */
+            speex_echo_state_reset(e->echo);
+        }
+        pthread_mutex_unlock(&e->io_lock);
+    }
     atomic_store(&e->echo_cancel, on);
 }
 
@@ -743,7 +785,9 @@ int engine_record_start(engine_t *e, const char *base_dir, rec_format_t fmt, cha
     rec_track_spec_t specs[REC_MAX_TRACKS];
     int map[REC_MAX_TRACKS];
     int n = 0;
-    pthread_mutex_lock(&e->io_lock);
+    /* The endpoint set only changes on this (UI) thread, so it can be read
+     * without io_lock. Files are created without the lock as well: disk I/O
+     * must never stall the real-time mixer. */
     snprintf(specs[n].name, sizeof specs[n].name, "full-mix");
     specs[n].channels = 2;
     map[n++] = -1;
@@ -758,10 +802,11 @@ int engine_record_start(engine_t *e, const char *base_dir, rec_format_t fmt, cha
     }
     int res = recorder_start(e->rec, base_dir, fmt, ENGINE_RATE, specs, n, err, err_len);
     if (res == 0) {
+        pthread_mutex_lock(&e->io_lock);
         memcpy(e->rec_map, map, sizeof map);
         e->rec_tracks = n;
+        pthread_mutex_unlock(&e->io_lock);
     }
-    pthread_mutex_unlock(&e->io_lock);
     return res;
 }
 

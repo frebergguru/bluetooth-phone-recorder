@@ -469,6 +469,9 @@ msgstr "Støyport for %s"
 msgid "Input device for %s"
 msgstr "Inngangsenhet for %s"
 
+msgid "Remove %s"
+msgstr "Fjern %s"
+
 msgid "%s is now heard by the caller"
 msgstr "Den som ringer hører nå %s"
 

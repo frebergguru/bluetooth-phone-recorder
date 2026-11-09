@@ -80,6 +80,13 @@ static unsigned char *unzstd(const unsigned char *in, size_t in_len, size_t *out
             break;
         }
         if (r == 0 && ib.pos == ib.size) break;
+        if (ib.pos == ib.size && ob.pos == 0 && pos < cap) {
+            /* input used up, frame not finished, nothing more comes out:
+             * truncated file. Without this check the loop never ends. */
+            free(out);
+            out = NULL;
+            break;
+        }
         if (pos == cap) {
             cap *= 2;
             unsigned char *n = realloc(out, cap);

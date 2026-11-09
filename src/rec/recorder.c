@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <time.h>
 #include <unistd.h>
@@ -109,6 +110,26 @@ static void sanitize(char *dst, size_t len, const char *src)
     dst[j] = 0;
 }
 
+/* Creates base_dir/stamp, or base_dir/stamp-2, -3 ... if a session with the
+ * same second already exists, so a quick stop and start never overwrites the
+ * previous recording. Returns 0 or -1 with errno set. */
+static int make_session_dir(char *dir, size_t len, const char *base_dir, const char *stamp)
+{
+    if (paths_mkdirs(base_dir) != 0) return -1;
+    for (int i = 1; i < 1000; i++) {
+        int w = i == 1 ? snprintf(dir, len, "%s/%s", base_dir, stamp)
+                       : snprintf(dir, len, "%s/%s-%d", base_dir, stamp, i);
+        if (w < 0 || (size_t)w >= len) {
+            errno = ENAMETOOLONG;
+            return -1;
+        }
+        if (mkdir(dir, 0755) == 0) return 0;
+        if (errno != EEXIST) return -1;
+    }
+    errno = EEXIST;
+    return -1;
+}
+
 static size_t drain_track(recorder_t *r, rec_track_t *t)
 {
     float buf[8192];
@@ -163,8 +184,7 @@ int recorder_start(recorder_t *r, const char *base_dir, rec_format_t fmt, uint32
     localtime_r(&now, &tm);
     char stamp[64];
     strftime(stamp, sizeof stamp, "%Y-%m-%d_%H-%M-%S", &tm);
-    snprintf(r->session_dir, sizeof r->session_dir, "%s/%s", base_dir, stamp);
-    if (paths_mkdirs(r->session_dir) != 0) {
+    if (make_session_dir(r->session_dir, sizeof r->session_dir, base_dir, stamp) != 0) {
         snprintf(err, err_len, "cannot create %s: %s", r->session_dir, strerror(errno));
         return -1;
     }
@@ -264,25 +284,99 @@ static void write_marker_files(recorder_t *r)
     }
 }
 
-static void write_cues(recorder_t *r, rec_track_t *t)
+static void put_le32(unsigned char *p, uint32_t v)
 {
-    if (r->fmt != REC_FMT_WAV_FLOAT && r->fmt != REC_FMT_WAV_24) return;
-    if (r->n_markers == 0 || !t->sf) return;
-    SF_CUES *cues = calloc(1, sizeof(SF_CUES));
-    if (!cues) return;
-    int n = r->n_markers > 100 ? 100 : r->n_markers; /* SF_CUES holds 100 points */
-    cues->cue_count = (uint32_t)n;
-    for (int i = 0; i < n; i++) {
-        SF_CUE_POINT *p = &cues->cue_points[i];
-        p->indx = i + 1;
-        p->position = (uint32_t)r->markers[i].frame;
-        p->fcc_chunk = 0x61746164; /* 'data' */
-        p->sample_offset = (uint32_t)r->markers[i].frame;
-        snprintf(p->name, sizeof p->name, "%s", r->markers[i].label);
+    p[0] = (unsigned char)v;
+    p[1] = (unsigned char)(v >> 8);
+    p[2] = (unsigned char)(v >> 16);
+    p[3] = (unsigned char)(v >> 24);
+}
+
+/* libsndfile accepts cue points only before the first sample is written, but
+ * markers are known only at the end. So the "cue " chunk (and a LIST/adtl
+ * chunk with the marker names, which editors show as labels) is appended to
+ * the closed file here, and the RIFF size (or the RF64 ds64 size) is fixed
+ * up. Returns 0 on success. */
+static int wav_append_cues(const char *path, const rec_marker_t *markers, int n_markers)
+{
+    int n = 0;
+    for (int i = 0; i < n_markers; i++)
+        if (markers[i].frame <= UINT32_MAX) n++; /* cue positions are 32-bit */
+    if (n == 0) return 0;
+
+    size_t cue_len = 8 + 4 + 24 * (size_t)n;
+    size_t adtl_len = 12; /* "LIST" size "adtl" */
+    for (int i = 0; i < n_markers; i++) {
+        if (markers[i].frame > UINT32_MAX) continue;
+        size_t text = strlen(markers[i].label) + 1;
+        adtl_len += 8 + 4 + text + (text & 1);
     }
-    if (sf_command(t->sf, SFC_SET_CUE, cues, sizeof(SF_CUES)) != SF_TRUE)
-        LOGW("rec", "could not store cue markers in %s", t->path);
-    free(cues);
+    unsigned char *buf = calloc(1, cue_len + adtl_len);
+    if (!buf) return -1;
+    unsigned char *p = buf;
+    memcpy(p, "cue ", 4);
+    put_le32(p + 4, (uint32_t)(cue_len - 8));
+    put_le32(p + 8, (uint32_t)n);
+    p += 12;
+    uint32_t id = 0;
+    for (int i = 0; i < n_markers; i++) {
+        if (markers[i].frame > UINT32_MAX) continue;
+        id++;
+        put_le32(p, id);                              /* cue point id */
+        put_le32(p + 4, (uint32_t)markers[i].frame);  /* position */
+        memcpy(p + 8, "data", 4);                     /* chunk */
+        put_le32(p + 12, 0);                          /* chunk start */
+        put_le32(p + 16, 0);                          /* block start */
+        put_le32(p + 20, (uint32_t)markers[i].frame); /* sample offset */
+        p += 24;
+    }
+    memcpy(p, "LIST", 4);
+    put_le32(p + 4, (uint32_t)(adtl_len - 8));
+    memcpy(p + 8, "adtl", 4);
+    p += 12;
+    id = 0;
+    for (int i = 0; i < n_markers; i++) {
+        if (markers[i].frame > UINT32_MAX) continue;
+        id++;
+        size_t text = strlen(markers[i].label) + 1;
+        memcpy(p, "labl", 4);
+        put_le32(p + 4, (uint32_t)(4 + text));
+        put_le32(p + 8, id);
+        memcpy(p + 12, markers[i].label, text); /* includes the 0, pad byte is 0 too */
+        p += 12 + text + (text & 1);
+    }
+
+    int res = -1;
+    FILE *f = fopen(path, "r+b");
+    if (!f) goto out;
+    unsigned char hdr[28];
+    if (fread(hdr, 1, 12, f) != 12 || memcmp(hdr + 8, "WAVE", 4) != 0) goto out;
+    bool rf64 = memcmp(hdr, "RF64", 4) == 0;
+    if (!rf64 && memcmp(hdr, "RIFF", 4) != 0) goto out;
+    if (rf64 && (fread(hdr + 12, 1, 16, f) != 16 || memcmp(hdr + 12, "ds64", 4) != 0)) goto out;
+    if (fseeko(f, 0, SEEK_END) != 0) goto out;
+    off_t end = ftello(f);
+    if (end < 12) goto out;
+    if ((end & 1) && fputc(0, f) == EOF) goto out; /* chunks start on even offsets */
+    if (fwrite(buf, 1, cue_len + adtl_len, f) != cue_len + adtl_len) goto out;
+    off_t new_end = ftello(f);
+    if (new_end < 0) goto out;
+    uint64_t riff_size = (uint64_t)new_end - 8;
+    if (rf64) {
+        unsigned char sz[8];
+        for (int i = 0; i < 8; i++) sz[i] = (unsigned char)(riff_size >> (8 * i));
+        if (fseeko(f, 20, SEEK_SET) != 0 || fwrite(sz, 1, 8, f) != 8) goto out;
+    } else {
+        if (riff_size > UINT32_MAX) goto out;
+        unsigned char sz[4];
+        put_le32(sz, (uint32_t)riff_size);
+        if (fseeko(f, 4, SEEK_SET) != 0 || fwrite(sz, 1, 4, f) != 4) goto out;
+    }
+    res = 0;
+out:
+    if (f && fclose(f) != 0) res = -1;
+    free(buf);
+    return res;
 }
 
 void recorder_halt(recorder_t *r)
@@ -300,12 +394,16 @@ void recorder_stop(recorder_t *r)
         r->writer_started = false;
     }
     pthread_mutex_lock(&r->marker_lock);
+    bool wav = r->fmt == REC_FMT_WAV_FLOAT || r->fmt == REC_FMT_WAV_24;
     for (int i = 0; i < r->n_tracks; i++) {
         rec_track_t *t = &r->tracks[i];
-        write_cues(r, t);
+        bool opened = t->sf != NULL;
         if (t->sf) sf_close(t->sf);
         t->sf = NULL;
         rb_free(&t->ring);
+        if (opened && wav && r->n_markers > 0 &&
+            wav_append_cues(t->path, r->markers, r->n_markers) != 0)
+            LOGW("rec", "could not store cue markers in %s", t->path);
     }
     write_marker_files(r);
     pthread_mutex_unlock(&r->marker_lock);

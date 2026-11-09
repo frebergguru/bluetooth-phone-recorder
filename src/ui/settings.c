@@ -214,13 +214,17 @@ void settings_save(const settings_t *s)
 
     char *path = settings_path();
     GError *err = NULL;
-    if (!g_key_file_save_to_file(kf, path, &err)) {
+    gsize len = 0;
+    char *data = g_key_file_to_data(kf, &len, NULL);
+    /* The file may hold the OBS password: create it as 0600 right away
+     * (atomically replaced), instead of writing it world-readable and
+     * tightening the mode afterwards. */
+    if (!g_file_set_contents_full(path, data, (gssize)len, G_FILE_SET_CONTENTS_CONSISTENT, 0600,
+                                  &err)) {
         LOGE("settings", "cannot save %s: %s", path, err->message);
         g_error_free(err);
-    } else {
-        /* the file may hold the OBS password */
-        g_chmod(path, 0600);
     }
+    g_free(data);
     g_free(path);
     g_key_file_free(kf);
 }

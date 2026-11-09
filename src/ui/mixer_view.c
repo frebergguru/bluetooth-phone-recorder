@@ -21,6 +21,7 @@ struct strip {
     GtkWidget *gain;        /* GtkScale */
     GtkWidget *pan;
     GtkWidget *mute, *solo, *send, *hpf, *gate;
+    GtkWidget *remove;                /* inputs only */
     GtkWidget *send_icon, *send_text; /* content of the "In call" button */
     char device_names[64][256]; /* node names matching dropdown rows (row 0 = default) */
     int n_devices;
@@ -87,6 +88,11 @@ static void update_a11y_labels(strip_t *s)
     if (s->device) {
         snprintf(buf, sizeof buf, _("Input device for %s"), n);
         a11y_label(s->device, buf);
+    }
+    if (s->remove) {
+        /* every strip has a "Remove" button: say which input it removes */
+        snprintf(buf, sizeof buf, _("Remove %s"), n);
+        a11y_label(s->remove, buf);
     }
     update_send_button(s);
 }
@@ -322,10 +328,10 @@ strip_t *strip_new(int channel)
         gtk_box_append(GTK_BOX(row2), s->gate);
         gtk_box_append(GTK_BOX(in), row2);
 
-        GtkWidget *rm = gtk_button_new_with_mnemonic(_("Remo_ve"));
-        gtk_widget_add_css_class(rm, "flat");
-        g_signal_connect(rm, "clicked", G_CALLBACK(on_remove), s);
-        gtk_box_append(GTK_BOX(in), rm);
+        s->remove = gtk_button_new_with_mnemonic(_("Remo_ve"));
+        gtk_widget_add_css_class(s->remove, "flat");
+        g_signal_connect(s->remove, "clicked", G_CALLBACK(on_remove), s);
+        gtk_box_append(GTK_BOX(in), s->remove);
     } else {
         GtkWidget *note = gtk_label_new(_("Never sent back to the caller"));
         gtk_label_set_wrap(GTK_LABEL(note), TRUE);
@@ -402,9 +408,10 @@ void strip_save(strip_t *s, settings_input_t *out)
 {
     mixer_channel_t *c = mch(s);
     snprintf(out->label, sizeof out->label, "%s", engine_input_label(APP->engine, s->ch));
-    guint sel = s->device ? gtk_drop_down_get_selected(GTK_DROP_DOWN(s->device)) : 0;
-    if (sel != GTK_INVALID_LIST_POSITION && (int)sel < s->n_devices)
-        snprintf(out->target, sizeof out->target, "%s", s->device_names[sel]);
+    /* The device actually in use, not the list row: while a chosen
+     * microphone is unplugged the list shows "System default input", and
+     * saving that would forget the user's choice. */
+    snprintf(out->target, sizeof out->target, "%s", engine_input_target(APP->engine, s->ch));
     out->gain_db = atomic_load(&c->gain_db);
     out->pan = atomic_load(&c->pan);
     out->send_to_call = atomic_load(&c->send_to_call);
@@ -474,13 +481,15 @@ static void on_monitor_device(GtkDropDown *dd, GParamSpec *ps, gpointer d)
     (void)d;
     if (g_object_get_data(G_OBJECT(dd), "updating")) return;
     guint sel = gtk_drop_down_get_selected(dd);
-    engine_device_t devs[64];
-    int n = engine_list_devices(APP->engine, false, devs, 64);
-    if (sel == 0 || sel == GTK_INVALID_LIST_POSITION || (int)sel > n)
+    /* node names stored with the list rows (window_refresh_devices): a fresh
+     * device list could differ from the rows if a device just came or went */
+    char **names = g_object_get_data(G_OBJECT(dd), "names");
+    guint n = names ? g_strv_length(names) : 0;
+    if (sel == 0 || sel == GTK_INVALID_LIST_POSITION || sel >= n)
         APP->settings.monitor_target[0] = 0;
     else
         snprintf(APP->settings.monitor_target, sizeof APP->settings.monitor_target, "%s",
-                 devs[sel - 1].name);
+                 names[sel]);
     if (APP->settings.monitor_enabled)
         engine_set_monitor(APP->engine, true, APP->settings.monitor_target);
     settings_save(&APP->settings);

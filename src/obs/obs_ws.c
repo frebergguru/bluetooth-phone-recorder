@@ -104,10 +104,15 @@ static void on_message(SoupWebsocketConnection *conn, gint type, GBytes *message
         g_object_unref(p);
         return;
     }
-    JsonObject *root = json_node_get_object(json_parser_get_root(p));
+    JsonNode *root_node = json_parser_get_root(p);
+    if (!root_node || !JSON_NODE_HOLDS_OBJECT(root_node)) {
+        g_object_unref(p);
+        return;
+    }
+    JsonObject *root = json_node_get_object(root_node);
     gint64 op = json_object_get_int_member_with_default(root, "op", -1);
-    JsonObject *d = json_object_has_member(root, "d") ? json_object_get_object_member(root, "d")
-                                                      : NULL;
+    JsonNode *d_node = json_object_get_member(root, "d");
+    JsonObject *d = d_node && JSON_NODE_HOLDS_OBJECT(d_node) ? json_node_get_object(d_node) : NULL;
     if (op == 0 && d) { /* Hello */
         JsonBuilder *b = json_builder_new();
         json_builder_begin_object(b);
@@ -119,8 +124,9 @@ static void on_message(SoupWebsocketConnection *conn, gint type, GBytes *message
         json_builder_add_int_value(b, 1);
         json_builder_set_member_name(b, "eventSubscriptions");
         json_builder_add_int_value(b, 0);
-        if (json_object_has_member(d, "authentication")) {
-            JsonObject *a = json_object_get_object_member(d, "authentication");
+        JsonNode *a_node = json_object_get_member(d, "authentication");
+        if (a_node && JSON_NODE_HOLDS_OBJECT(a_node)) {
+            JsonObject *a = json_node_get_object(a_node);
             const char *salt = json_object_get_string_member_with_default(a, "salt", "");
             const char *challenge = json_object_get_string_member_with_default(a, "challenge", "");
             char *auth = obs_ws_auth_string(o->password ? o->password : "", salt, challenge);
@@ -137,7 +143,9 @@ static void on_message(SoupWebsocketConnection *conn, gint type, GBytes *message
         status(o, TRUE, NULL);
         LOGI("obs", "connected to OBS");
     } else if (op == 7 && d) { /* RequestResponse */
-        JsonObject *st = json_object_get_object_member(d, "requestStatus");
+        JsonNode *st_node = json_object_get_member(d, "requestStatus");
+        JsonObject *st = st_node && JSON_NODE_HOLDS_OBJECT(st_node) ? json_node_get_object(st_node)
+                                                                     : NULL;
         if (st && !json_object_get_boolean_member_with_default(st, "result", FALSE)) {
             LOGW("obs", "OBS request %s failed: %s",
                  json_object_get_string_member_with_default(d, "requestType", "?"),
@@ -156,11 +164,33 @@ static void on_closed(SoupWebsocketConnection *conn, gpointer data)
     status(o, FALSE, code == 4009 ? "wrong OBS websocket password" : "disconnected from OBS");
 }
 
+/* One connection attempt. It holds its own reference to the cancellable, so
+ * a callback that arrives after obs_ws_disconnect() (or after a newer
+ * attempt replaced it, or after obs_ws_free()) sees it cancelled and never
+ * touches the obs_ws_t again. */
+typedef struct {
+    obs_ws_t *o;
+    GCancellable *cancel;
+} connect_ctx_t;
+
 static void on_connected(GObject *src, GAsyncResult *res, gpointer data)
 {
-    obs_ws_t *o = data;
+    connect_ctx_t *ctx = data;
     GError *err = NULL;
     SoupWebsocketConnection *conn = soup_session_websocket_connect_finish(SOUP_SESSION(src), res, &err);
+    gboolean stale = g_cancellable_is_cancelled(ctx->cancel);
+    obs_ws_t *o = ctx->o;
+    g_object_unref(ctx->cancel);
+    g_free(ctx);
+    if (stale) {
+        if (conn) {
+            soup_websocket_connection_close(conn, SOUP_WEBSOCKET_CLOSE_NORMAL, NULL);
+            g_object_unref(conn);
+        }
+        g_clear_error(&err);
+        return;
+    }
+    g_clear_object(&o->cancel); /* this attempt is finished */
     if (!conn) {
         if (!g_error_matches(err, G_IO_ERROR, G_IO_ERROR_CANCELLED))
             status(o, FALSE, err ? err->message : "connection failed");
@@ -210,8 +240,11 @@ void obs_ws_connect(obs_ws_t *o, const char *host, int port, const char *passwor
     }
     const char *protocols[] = {"obswebsocket.json", NULL};
     o->cancel = g_cancellable_new();
+    connect_ctx_t *ctx = g_new0(connect_ctx_t, 1);
+    ctx->o = o;
+    ctx->cancel = g_object_ref(o->cancel);
     soup_session_websocket_connect_async(o->session, msg, NULL, (char **)protocols,
-                                         G_PRIORITY_DEFAULT, o->cancel, on_connected, o);
+                                         G_PRIORITY_DEFAULT, o->cancel, on_connected, ctx);
     g_object_unref(msg);
 }
 

@@ -158,5 +158,29 @@ int main(void)
         CHECK(peak <= 1.0f);
     }
 
+    /* 6) a released channel writes silence to its direct output (the engine
+     * relies on this so a removed input's recording track gets silence, not
+     * its last block over and over) */
+    {
+        mixer_t m;
+        mixer_init(&m, 48000.0f);
+        mixer_channel_setup(&m, 1, MIX_CH_INPUT);
+        static float in[3][N * BLOCKS];
+        make_inputs(in);
+        float d[N];
+        mixer_io_t io = {0};
+        io.in[1] = in[1];
+        io.direct[1] = d;
+        mixer_process(&m, &io, N);
+        CHECK(energy(d, N) > 0.0f);
+        mixer_channel_release(&m, 1);
+        io.in[1] = NULL;
+        mixer_process(&m, &io, N);
+        float maxabs = 0;
+        for (int i = 0; i < N; i++)
+            if (fabsf(d[i]) > maxabs) maxabs = fabsf(d[i]);
+        CHECK(maxabs == 0.0f);
+    }
+
     TEST_DONE();
 }
