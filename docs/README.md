@@ -8,6 +8,13 @@
 - **[Accessibility](../ACCESSIBILITY.md):** accessibility statement in English
   and Norwegian.
 
+Also available as standalone files, with all pictures inside:
+
+| Guide | PDF (A4) | HTML |
+|-------|----------|------|
+| User guide | [user-guide.pdf](pdf/user-guide.pdf) | [user-guide.html](html/user-guide.html) |
+| OBS guide | [obs-guide.pdf](pdf/obs-guide.pdf) | [obs-guide.html](html/obs-guide.html) |
+
 The screenshots in `images/` are made automatically from the real app with
 demo data (no phone, no Bluetooth adapter and no sound devices are used):
 
@@ -17,3 +24,13 @@ scripts/make-obs-screenshots.sh     # OBS pictures (needs OBS Studio)
 ```
 
 Both run off-screen in a sealed virtual session and leave your desktop alone.
+
+The PDF and HTML files are made from the Markdown guides with:
+
+```sh
+scripts/make-doc-exports.sh
+```
+
+PDFs need WeasyPrint (`python3 -m venv ~/.venv/weasy && ~/.venv/weasy/bin/pip install weasyprint`,
+then run with `BPR_WEASYPRINT_PYTHON=~/.venv/weasy/bin/python`). Without it, only
+the HTML files are made.
