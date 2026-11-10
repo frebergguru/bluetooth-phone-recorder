@@ -76,7 +76,9 @@ int main(int argc, char **argv)
 
     setlocale(LC_ALL, "");
     apply_language_setting();
-    bindtextdomain(GETTEXT_PACKAGE, BPR_LOCALEDIR);
+    /* relocatable packages (AppImage) point at their own translations */
+    const char *localedir = getenv("BPR_LOCALEDIR");
+    bindtextdomain(GETTEXT_PACKAGE, localedir && *localedir ? localedir : BPR_LOCALEDIR);
     bind_textdomain_codeset(GETTEXT_PACKAGE, "UTF-8");
     textdomain(GETTEXT_PACKAGE);
 

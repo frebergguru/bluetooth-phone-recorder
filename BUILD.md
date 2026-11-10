@@ -123,14 +123,49 @@ dist/bt-phone-recorder-<version>-linux-<arch>.tar.xz.sha256
 
 The version comes from `project(... version : ...)` in `meson.build`.
 
-## 8. Cleaning
+## 8. AppImage
+
+One file that runs on most Linux distributions without installing:
+
+```sh
+scripts/build-appimage.sh
+```
+
+It makes a clean release build, bundles the libraries the app needs (but not
+the ones that must come from the host: the C library, graphics, X11/Wayland,
+fonts, PipeWire and PulseAudio), runs the program from the bundle to prove
+every bundled library loads from inside it, strips everything and writes:
+
+```
+dist/bt-phone-recorder-<version>-<arch>.AppImage
+dist/bt-phone-recorder-<version>-<arch>.AppImage.sha256
+```
+
+Needs `appimagetool` (Arch: `appimagetool`). The script prints the glibc
+version the AppImage needs: glibc only works forwards, so build on the oldest
+distribution you want to support.
+
+Using it:
+
+```sh
+chmod +x bt-phone-recorder-*.AppImage
+./bt-phone-recorder-*.AppImage
+```
+
+The udev rule must still be installed once (`scripts/install-udev-rule.sh`
+from the source, or copy `data/70-bt-phone-recorder.rules` to
+`/etc/udev/rules.d/`). The "kernel driver" adapter mode is not available
+from an AppImage, because its helper needs a file capability that an AppImage
+cannot carry; direct USB works.
+
+## 9. Cleaning
 
 Pick the level you need:
 
 | Goal                                        | Command                          |
 |---------------------------------------------|----------------------------------|
 | Remove compiled objects, keep configuration | `ninja -C build clean`           |
-| Start completely fresh (recommended before a build someone will run) | `rm -rf build build-release dist` |
+| Start completely fresh (recommended before a build someone will run) | `rm -rf build build-release build-appimage dist` |
 | Reset the BTstack submodule to the pinned release | `git submodule update --init --force third_party/btstack` |
 
 After `rm -rf build`, configure again with `meson setup build` (step 3).
@@ -139,7 +174,7 @@ After `rm -rf build`, configure again with `meson setup build` (step 3).
 
 ```sh
 cd bluetooth-phone-recorder
-rm -rf build build-release dist
+rm -rf build build-release build-appimage dist
 git submodule update --init --recursive
 meson setup build
 ninja -C build

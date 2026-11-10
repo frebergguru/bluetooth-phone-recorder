@@ -115,6 +115,11 @@ If an adapter misbehaves, use **Menu, Save adapter report**, and turn on
 **Preferences, Bluetooth, Save Bluetooth trace** to get a trace file
 (PacketLogger format, opens in Wireshark).
 
+## Download
+
+An AppImage (one file, no installation) is built with `scripts/build-appimage.sh`;
+see [BUILD.md](BUILD.md#8-appimage).
+
 ## Building
 
 Full instructions, including cleaning and release builds: [BUILD.md](BUILD.md).

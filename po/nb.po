@@ -948,3 +948,12 @@ msgstr "K_ontakter"
 
 msgid "Search the phone's address book and call (Ctrl+K)"
 msgstr "Søk i telefonens adressebok og ring (Ctrl+K)"
+
+msgid "Bluetooth Call Recorder"
+msgstr "Bluetooth-samtaleopptak"
+
+msgid "Record phone calls over Bluetooth for podcasts"
+msgstr "Ta opp telefonsamtaler over Bluetooth til podkaster"
+
+msgid "podcast;phone;call;bluetooth;recorder;OBS;"
+msgstr "podkast;podcast;telefon;samtale;bluetooth;opptak;OBS;"
