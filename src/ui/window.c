@@ -152,7 +152,7 @@ static void on_dial(GtkWidget *w, gpointer d)
         app_toast(_("Type a number to call"));
         return;
     }
-    bt_cmd_dial(num);
+    app_dial(num, NULL, 0);
 }
 
 static void on_redial(GtkButton *b, gpointer d)
@@ -256,6 +256,18 @@ static GtkWidget *build_phone_panel(void)
                                 _("Choose whether the call audio goes through this app or the "
                                   "phone itself (Ctrl+Shift+T)"));
     gtk_box_append(GTK_BOX(inner), APP->audio_btn);
+
+    GtkWidget *row2 = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+    gtk_box_set_homogeneous(GTK_BOX(row2), TRUE);
+    APP->hold_btn = icon_text_button("media-playback-pause-symbolic", _("H_old"), "app.hold");
+    gtk_widget_set_tooltip_text(APP->hold_btn, _("Put the call on hold, or take it back (Ctrl+Shift+P)"));
+    APP->mic_btn = icon_text_button("microphone-sensitivity-high-symbolic", _("Mics _on"), "app.mic-for-call");
+    gtk_widget_set_tooltip_text(APP->mic_btn,
+                                _("Whether the caller hears your microphones (Ctrl+Shift+M). "
+                                  "OBS and the recording always keep them."));
+    gtk_box_append(GTK_BOX(row2), APP->hold_btn);
+    gtk_box_append(GTK_BOX(row2), APP->mic_btn);
+    gtk_box_append(GTK_BOX(inner), row2);
     adw_preferences_group_add(ADW_PREFERENCES_GROUP(call), call_box);
     gtk_box_append(GTK_BOX(box), call);
 
@@ -281,8 +293,14 @@ static GtkWidget *build_phone_panel(void)
     adw_preferences_group_add(ADW_PREFERENCES_GROUP(dial), dial_row);
     APP->contacts_btn = icon_text_button("x-office-address-book-symbolic", _("C_ontacts"), "app.contacts");
     gtk_widget_set_tooltip_text(APP->contacts_btn, _("Search the phone's address book and call (Ctrl+K)"));
-    gtk_widget_set_margin_top(APP->contacts_btn, 6);
-    adw_preferences_group_add(ADW_PREFERENCES_GROUP(dial), APP->contacts_btn);
+    GtkWidget *log_btn = icon_text_button("document-open-recent-symbolic", _("Call _log"), "app.call-log");
+    gtk_widget_set_tooltip_text(log_btn, _("Earlier calls: call back, add to favorites or the queue (Ctrl+L)"));
+    GtkWidget *lists = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+    gtk_box_set_homogeneous(GTK_BOX(lists), TRUE);
+    gtk_widget_set_margin_top(lists, 6);
+    gtk_box_append(GTK_BOX(lists), APP->contacts_btn);
+    gtk_box_append(GTK_BOX(lists), log_btn);
+    adw_preferences_group_add(ADW_PREFERENCES_GROUP(dial), lists);
     GtkWidget *exp = gtk_expander_new_with_mnemonic(_("_Keypad (also sends tones during a call)"));
     APP->keypad = build_keypad();
     gtk_widget_set_margin_top(APP->keypad, 6);
@@ -290,6 +308,8 @@ static GtkWidget *build_phone_panel(void)
     gtk_widget_set_margin_top(exp, 6);
     adw_preferences_group_add(ADW_PREFERENCES_GROUP(dial), exp);
     gtk_box_append(GTK_BOX(box), dial);
+    gtk_box_append(GTK_BOX(box), calls_view_queue_group());
+    gtk_box_append(GTK_BOX(box), calls_view_fav_group());
 
     /* Phone connection */
     GtkWidget *phone = adw_preferences_group_new();
@@ -363,7 +383,10 @@ void app_update_call_ui(void)
     switch (APP->call_state) {
     case CALL_INCOMING: status = APP->ind_call == 1 ? _("Call waiting") : _("Incoming call"); break;
     case CALL_OUTGOING: status = _("Calling..."); break;
-    case CALL_ACTIVE: status = APP->ind_callheld ? _("In call (one call on hold)") : _("In call"); break;
+    case CALL_ACTIVE:
+        status = APP->ind_callheld == 2 ? _("On hold")
+                 : APP->ind_callheld ? _("In call (one call on hold)") : _("In call");
+        break;
     case CALL_IDLE:
     default: status = APP->phone_connected ? _("No call") : _("Connect a phone to make calls"); break;
     }
@@ -405,12 +428,33 @@ void app_update_call_ui(void)
     gtk_widget_set_visible(APP->hangup_btn,
                            APP->call_state == CALL_ACTIVE || APP->call_state == CALL_OUTGOING);
     gtk_widget_set_visible(APP->audio_btn, APP->call_state == CALL_ACTIVE);
+    gtk_widget_set_visible(gtk_widget_get_parent(APP->hold_btn),
+                           APP->call_state == CALL_ACTIVE || APP->call_state == CALL_OUTGOING);
+    gtk_widget_set_visible(APP->hold_btn, APP->call_state == CALL_ACTIVE);
+    {
+        AdwButtonContent *hc = ADW_BUTTON_CONTENT(gtk_button_get_child(GTK_BUTTON(APP->hold_btn)));
+        bool held = APP->ind_callheld == 2;
+        adw_button_content_set_label(hc, held ? _("Res_ume") : _("H_old"));
+        adw_button_content_set_icon_name(hc, held ? "media-playback-start-symbolic"
+                                                  : "media-playback-pause-symbolic");
+        bool mics_off = atomic_load(&engine_mixer(APP->engine)->call_mute);
+        AdwButtonContent *mc = ADW_BUTTON_CONTENT(gtk_button_get_child(GTK_BUTTON(APP->mic_btn)));
+        /* state in words and icon, not only colour */
+        adw_button_content_set_label(mc, mics_off ? _("Mics _off") : _("Mics _on"));
+        adw_button_content_set_icon_name(mc, mics_off ? "microphone-disabled-symbolic"
+                                                      : "microphone-sensitivity-high-symbolic");
+        if (mics_off)
+            gtk_widget_add_css_class(APP->mic_btn, "destructive-action");
+        else
+            gtk_widget_remove_css_class(APP->mic_btn, "destructive-action");
+    }
     AdwButtonContent *ac = ADW_BUTTON_CONTENT(gtk_button_get_child(GTK_BUTTON(APP->audio_btn)));
     adw_button_content_set_label(ac, APP->audio_on_computer ? _("Move call audio to the _phone")
                                                             : _("Move call audio to the _computer"));
     gboolean can_dial = APP->phone_connected && APP->call_state == CALL_IDLE;
     gtk_widget_set_sensitive(APP->dial_btn, can_dial);
     gtk_widget_set_sensitive(APP->redial_btn, can_dial);
+    calls_view_refresh(); /* queue/favorite call buttons follow the same rule */
 
     /* recording controls */
     AdwButtonContent *rc = ADW_BUTTON_CONTENT(gtk_button_get_child(GTK_BUTTON(APP->record_btn)));

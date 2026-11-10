@@ -14,6 +14,7 @@
 #include "bt/bt_engine.h"
 #include "obs/obs_ws.h"
 #include "core/vcard.h"
+#include "calldata.h"
 #include "settings.h"
 
 typedef enum {
@@ -58,6 +59,14 @@ typedef struct {
     char caller_name[128];
     char waiting_number[64]; /* second caller while a call is active */
     char waiting_name[128];
+    /* call log bookkeeping for the call in progress */
+    bool log_pending;
+    call_dir_t log_dir;
+    bool log_answered, log_declined;
+    gint64 log_start_wall;  /* unix seconds */
+    gint64 log_answer_us;   /* monotonic */
+    char dial_number[64], dial_name[128]; /* what we dialled, for the log */
+    guint dial_queue_id;    /* queue entry being called, 0 = none */
     contact_t *contacts; /* address book of the current phone, sorted by name */
     int n_contacts;
     bool audio_on_computer;
@@ -80,7 +89,9 @@ typedef struct {
     GtkWidget *phone_status_row, *pair_switch, *paired_group, *name_row;
     GtkWidget *paired_rows[16];
     GtkWidget *call_status, *caller_label, *call_timer, *codec_label, *phone_info;
-    GtkWidget *answer_btn, *reject_btn, *hangup_btn, *audio_btn;
+    GtkWidget *answer_btn, *reject_btn, *hangup_btn, *audio_btn, *hold_btn, *mic_btn;
+    GtkWidget *queue_group, *queue_rows[64], *fav_group, *fav_rows[64];
+    GtkWidget *queue_number, *queue_name;
     GtkWidget *dial_entry, *dial_btn, *redial_btn, *keypad, *contacts_btn;
     GtkWidget *disk_label, *health_label, *session_label;
     GtkWidget *monitor_switch, *monitor_dropdown, *monitor_gain, *call_gain, *echo_switch;
@@ -106,6 +117,8 @@ void app_update_phone_ui(void);
 void app_save_mixer_settings(void);
 /* Load the saved address book of a phone (addr NULL = clear). */
 void app_load_contacts(const char *addr);
+/* Start a call (never automatic). queue_id: the queue entry it comes from, or 0. */
+void app_dial(const char *number, const char *name, guint queue_id);
 /* Contact name for a number, or NULL. */
 const char *app_contact_name(const char *number);
 gboolean app_save_screenshot(const char *path);
@@ -141,5 +154,14 @@ void dialog_about(void);
 void dialog_shortcuts(void);
 void dialog_adapter_report(void);
 void dialog_contacts(void);
+void dialog_call_log(void);
+
+/* calls_view.c: favorites and call queue in the main window */
+GtkWidget *calls_view_queue_group(void);
+GtkWidget *calls_view_fav_group(void);
+void calls_view_refresh(void);
+/* Buttons used in lists: star (favorite) and add-to-queue for a number. */
+GtkWidget *calls_view_star_button(const char *name, const char *number);
+GtkWidget *calls_view_queue_button(const char *name, const char *number);
 
 #endif

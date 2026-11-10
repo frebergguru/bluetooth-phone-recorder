@@ -59,6 +59,7 @@ typedef struct {
     mixer_channel_t ch[MIXER_MAX_CHANNELS];
     _Atomic float monitor_gain_db;
     _Atomic float call_gain_db;
+    atomic_bool call_mute; /* silence everything sent to the caller ("microphones off") */
     atomic_bool limit_full; /* peak limiter on full mix (default on) */
 
     /* bus meters, linear peak */

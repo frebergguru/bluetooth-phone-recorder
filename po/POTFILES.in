@@ -6,3 +6,6 @@ src/ui/mixer_view.c
 src/ui/settings.c
 src/ui/window.c
 data/guru.freberg.BtPhoneRecorder.desktop.in
+src/ui/calls_view.c
+src/ui/calldata.c
+src/ui/docshots.c

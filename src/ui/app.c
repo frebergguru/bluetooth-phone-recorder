@@ -187,6 +187,55 @@ static void name_from_contacts(const char *number, char *name, size_t len)
     if (n) snprintf(name, len, "%s", n);
 }
 
+void app_dial(const char *number, const char *name, guint queue_id)
+{
+    if (!number || !*number) return;
+    if (!APP->phone_connected) {
+        app_toast(_("Connect a phone first"));
+        return;
+    }
+    if (APP->call_state != CALL_IDLE) {
+        app_toast(_("End the current call first"));
+        return;
+    }
+    snprintf(APP->dial_number, sizeof APP->dial_number, "%s", number);
+    const char *n = name && *name ? name : app_contact_name(number);
+    snprintf(APP->dial_name, sizeof APP->dial_name, "%s", n ? n : "");
+    APP->dial_queue_id = queue_id;
+    bt_cmd_dial(number);
+}
+
+/* Write the finished call into the call log. Called before the caller
+ * fields are cleared. */
+static void call_log_finish(void)
+{
+    if (!APP->log_pending) return;
+    APP->log_pending = false;
+    log_entry_t e = {0};
+    e.time = APP->log_start_wall;
+    e.dir = APP->log_dir;
+    if (e.dir == CALL_DIR_IN && !APP->log_answered)
+        e.dir = APP->log_declined ? CALL_DIR_DECLINED : CALL_DIR_MISSED;
+    const char *num = APP->log_dir == CALL_DIR_OUT && APP->dial_number[0] ? APP->dial_number
+                                                                         : APP->caller_number;
+    const char *name = APP->log_dir == CALL_DIR_OUT && APP->dial_name[0] ? APP->dial_name
+                                                                        : APP->caller_name;
+    snprintf(e.number, sizeof e.number, "%s", num);
+    snprintf(e.name, sizeof e.name, "%s", name);
+    if (!e.name[0] && e.number[0]) {
+        const char *c = app_contact_name(e.number);
+        if (c) snprintf(e.name, sizeof e.name, "%s", c);
+    }
+    if (APP->log_answered)
+        e.duration = (int)((g_get_monotonic_time() - APP->log_answer_us) / G_USEC_PER_SEC);
+    call_log_add(&e);
+    if (APP->dial_queue_id && APP->log_answered) queue_mark_done(APP->dial_queue_id);
+    APP->dial_queue_id = 0;
+    APP->dial_number[0] = APP->dial_name[0] = 0;
+    APP->log_declined = false;
+    calls_view_refresh();
+}
+
 void app_request_restart(void)
 {
     APP->restart_requested = true;
@@ -216,6 +265,19 @@ static void set_call_state(call_state_t st)
     call_state_t old = APP->call_state;
     if (st == old) return;
     APP->call_state = st;
+    /* call log: a new call starts (not a waiting second one) */
+    if (old == CALL_IDLE && (st == CALL_INCOMING || st == CALL_OUTGOING || st == CALL_ACTIVE)) {
+        APP->log_pending = true;
+        APP->log_dir = st == CALL_INCOMING ? CALL_DIR_IN : CALL_DIR_OUT;
+        APP->log_answered = false;
+        APP->log_start_wall = g_get_real_time() / G_USEC_PER_SEC;
+        if (st == CALL_OUTGOING && !APP->dial_number[0] && APP->caller_number[0])
+            snprintf(APP->dial_number, sizeof APP->dial_number, "%s", APP->caller_number);
+    }
+    if (st == CALL_ACTIVE && APP->log_pending && !APP->log_answered) {
+        APP->log_answered = true;
+        APP->log_answer_us = g_get_monotonic_time();
+    }
     if (st == CALL_INCOMING) {
         char msg[256];
         const char *who = APP->caller_name[0] ? APP->caller_name
@@ -253,6 +315,8 @@ static void set_call_state(call_state_t st)
         APP->call_timer_running = false;
         g_application_withdraw_notification(G_APPLICATION(APP->gapp), "call");
         if (old == CALL_ACTIVE) app_announce(_("Call ended"), GTK_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_MEDIUM);
+        call_log_finish();
+        atomic_store(&engine_mixer(APP->engine)->call_mute, false); /* next call starts with mics on */
         APP->caller_number[0] = APP->caller_name[0] = 0;
         APP->waiting_number[0] = APP->waiting_name[0] = 0;
         if (APP->auto_recording && APP->settings.auto_stop) app_record_stop();
@@ -646,8 +710,10 @@ static void act_hangup(GSimpleAction *a, GVariant *p, gpointer d)
     (void)a; (void)p; (void)d;
     if (APP->call_state == CALL_INCOMING && APP->ind_call == 1)
         bt_cmd_reject_waiting(); /* AT+CHUP here would end the call already in progress */
-    else if (APP->call_state == CALL_INCOMING)
+    else if (APP->call_state == CALL_INCOMING) {
+        APP->log_declined = true;
         bt_cmd_reject();
+    }
     else if (APP->call_state != CALL_IDLE)
         bt_cmd_hangup();
 }
@@ -711,6 +777,24 @@ static void act_restart(GSimpleAction *a, GVariant *p, gpointer d)
 }
 
 static void act_contacts(GSimpleAction *a, GVariant *p, gpointer d) { (void)a; (void)p; (void)d; dialog_contacts(); }
+static void act_call_log(GSimpleAction *a, GVariant *p, gpointer d) { (void)a; (void)p; (void)d; dialog_call_log(); }
+static void act_hold(GSimpleAction *a, GVariant *p, gpointer d)
+{
+    (void)a; (void)p; (void)d;
+    if (APP->call_state != CALL_ACTIVE) return;
+    /* AT+CHLD=2: hold the active call, or take back the held one */
+    bt_cmd_hold_and_accept();
+}
+static void act_mic(GSimpleAction *a, GVariant *p, gpointer d)
+{
+    (void)a; (void)p; (void)d;
+    mixer_t *m = engine_mixer(APP->engine);
+    bool off = !atomic_load(&m->call_mute);
+    atomic_store(&m->call_mute, off);
+    app_announce(off ? _("Microphones off for the caller") : _("Microphones on for the caller"),
+                 GTK_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_MEDIUM);
+    app_update_call_ui();
+}
 
 static void act_open_session(GSimpleAction *a, GVariant *p, gpointer d)
 {
@@ -745,6 +829,9 @@ static const GActionEntry app_actions[] = {
     {"open-session", act_open_session, NULL, NULL, NULL, {0}},
     {"restart", act_restart, NULL, NULL, NULL, {0}},
     {"contacts", act_contacts, NULL, NULL, NULL, {0}},
+    {"call-log", act_call_log, NULL, NULL, NULL, {0}},
+    {"hold", act_hold, NULL, NULL, NULL, {0}},
+    {"mic-for-call", act_mic, NULL, NULL, NULL, {0}},
 };
 
 static void setup_accels(GtkApplication *app)
@@ -760,6 +847,9 @@ static void setup_accels(GtkApplication *app)
         {"app.audio-switch", {"<Control><Shift>t", NULL}},
         {"app.add-input", {"<Control>i", NULL}},
         {"app.contacts", {"<Control>k", NULL}},
+        {"app.call-log", {"<Control>l", NULL}},
+        {"app.hold", {"<Control><Shift>p", NULL}},
+        {"app.mic-for-call", {"<Control><Shift>m", NULL}},
         {"app.preferences", {"<Control>comma", NULL}},
         {"app.shortcuts", {"<Control>question", "F1", NULL}},
         {"app.quit", {"<Control>q", NULL}},
@@ -979,6 +1069,7 @@ static void on_startup(GApplication *gapp, gpointer d)
                                     NULL);
     setup_accels(GTK_APPLICATION(gapp));
     APP->obs = obs_ws_new(on_obs_status, NULL);
+    calldata_load();
 }
 
 static void on_shutdown(GApplication *gapp, gpointer d)
@@ -1001,6 +1092,7 @@ static void on_shutdown(GApplication *gapp, gpointer d)
     obs_ws_free(APP->obs);
     APP->obs = NULL;
     app_load_contacts(NULL); /* frees the list */
+    calldata_free();
     for (int c = 0; c < MIXER_MAX_CHANNELS; c++) {
         strip_free(APP->strips[c]);
         APP->strips[c] = NULL;

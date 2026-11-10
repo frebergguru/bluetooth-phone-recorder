@@ -22,6 +22,7 @@ void mixer_init(mixer_t *m, float rate)
     atomic_store(&m->monitor_gain_db, 0.0f);
     atomic_store(&m->call_gain_db, 0.0f);
     atomic_store(&m->limit_full, true);
+    atomic_store(&m->call_mute, false);
     limiter_init(&m->lim_full, rate, -1.0f);
     limiter_init(&m->lim_call, rate, -1.0f);
     m->g_monitor_s = 1.0f;
@@ -165,7 +166,11 @@ void mixer_process(mixer_t *m, mixer_io_t *io, size_t n)
     if (io->full_r) memcpy(io->full_r, full_r, n * sizeof(float));
 
     /* call bus (mix-minus) */
-    float call_t = db_to_lin(atomic_load_explicit(&m->call_gain_db, memory_order_relaxed));
+    /* "microphones off for the call" only silences this bus: direct outputs,
+     * the full mix, OBS and the recording are not touched */
+    float call_t = atomic_load_explicit(&m->call_mute, memory_order_relaxed)
+                       ? 0.0f
+                       : db_to_lin(atomic_load_explicit(&m->call_gain_db, memory_order_relaxed));
     for (size_t i = 0; i < n; i++) {
         ramp_step(&m->g_call_s, call_t, k);
         call[i] *= m->g_call_s;

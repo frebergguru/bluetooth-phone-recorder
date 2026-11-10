@@ -30,6 +30,7 @@ static void make_inputs(float in[3][N * BLOCKS])
 }
 
 /* toggle_block >= 0: switch mic 1's "send to call" off at that block */
+static bool call_mute_at_5;
 static void run(capture_t *cap, int toggle_block, bool mute_mic2_at_10)
 {
     static float in[3][N * BLOCKS];
@@ -42,6 +43,7 @@ static void run(capture_t *cap, int toggle_block, bool mute_mic2_at_10)
     for (int b = 0; b < BLOCKS; b++) {
         if (b == toggle_block) atomic_store(&m.ch[1].send_to_call, false);
         if (mute_mic2_at_10 && b == 10) atomic_store(&m.ch[2].mute, true);
+        if (call_mute_at_5 && b == 5) atomic_store(&m.call_mute, true);
         mixer_io_t io = {0};
         for (int c = 0; c < 3; c++) {
             io.in[c] = &in[c][b * N];
@@ -180,6 +182,25 @@ int main(void)
         for (int i = 0; i < N; i++)
             if (fabsf(d[i]) > maxabs) maxabs = fabsf(d[i]);
         CHECK(maxabs == 0.0f);
+    }
+
+    /* 7) "microphones off for the call": the call bus goes silent, nothing
+     * else changes by a single bit */
+    {
+        static capture_t c1, c2;
+        call_mute_at_5 = false;
+        run(&c1, -1, false);
+        call_mute_at_5 = true;
+        run(&c2, -1, false);
+        call_mute_at_5 = false;
+        for (int ch = 0; ch < 3; ch++) CHECK(memcmp(c1.direct[ch], c2.direct[ch], sizeof c1.direct[ch]) == 0);
+        CHECK(memcmp(c1.full_l, c2.full_l, sizeof c1.full_l) == 0);
+        CHECK(memcmp(c1.mon_l, c2.mon_l, sizeof c1.mon_l) == 0);
+        float tail = 0;
+        for (int i = 30 * N; i < BLOCKS * N; i++)
+            if (fabsf(c2.call[i]) > tail) tail = fabsf(c2.call[i]);
+        CHECK(tail < 1e-6f);
+        CHECK(energy(&c1.call[30 * N], N * 10) > 0.001f);
     }
 
     TEST_DONE();

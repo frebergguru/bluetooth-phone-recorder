@@ -703,6 +703,9 @@ void dialog_shortcuts(void)
         {N_("Calls"), N_("Decline or hang up"), "<Control><Shift>h"},
         {N_("Calls"), N_("Move call audio between phone and computer"), "<Control><Shift>t"},
         {N_("Calls"), N_("Contacts"), "<Control>k"},
+        {N_("Calls"), N_("Call log"), "<Control>l"},
+        {N_("Calls"), N_("Hold or resume the call"), "<Control><Shift>p"},
+        {N_("Calls"), N_("Microphones on or off for the caller"), "<Control><Shift>m"},
         {N_("Mixer"), N_("Input 1 to 9: heard by the caller on or off"), "<Control>1"},
         {N_("Mixer"), N_("Input 1 to 9: mute on or off"), "<Alt>1"},
         {N_("Mixer"), N_("Add an input"), "<Control>i"},
@@ -769,15 +772,11 @@ static void on_contact_call(GtkButton *b, gpointer ui_ptr)
 {
     contacts_ui_t *ui = ui_ptr;
     const char *number = g_object_get_data(G_OBJECT(b), "number");
-    if (!APP->phone_connected) {
-        app_toast(_("Connect a phone first"));
+    if (!APP->phone_connected || APP->call_state != CALL_IDLE) {
+        app_dial(number, NULL, 0); /* explains why not */
         return;
     }
-    if (APP->call_state != CALL_IDLE) {
-        app_toast(_("End the current call first"));
-        return;
-    }
-    bt_cmd_dial(number);
+    app_dial(number, g_object_get_data(G_OBJECT(b), "name"), 0);
     adw_dialog_close(ui->dialog);
 }
 
@@ -792,6 +791,7 @@ static GtkWidget *call_button(contacts_ui_t *ui, const contact_t *c, int k)
     gtk_widget_set_tooltip_text(b, a11y);
     gtk_accessible_update_property(GTK_ACCESSIBLE(b), GTK_ACCESSIBLE_PROPERTY_LABEL, a11y, -1);
     g_object_set_data_full(G_OBJECT(b), "number", g_strdup(c->numbers[k].number), g_free);
+    g_object_set_data_full(G_OBJECT(b), "name", g_strdup(c->name), g_free);
     g_signal_connect(b, "clicked", G_CALLBACK(on_contact_call), ui);
     return b;
 }
@@ -837,6 +837,8 @@ static void contacts_fill(contacts_ui_t *ui)
             char sub[96];
             snprintf(sub, sizeof sub, "%s: %s", tel_type_label(c->numbers[0].type), c->numbers[0].number);
             adw_action_row_set_subtitle(ADW_ACTION_ROW(row), sub);
+            adw_action_row_add_suffix(ADW_ACTION_ROW(row), calls_view_star_button(c->name, c->numbers[0].number));
+            adw_action_row_add_suffix(ADW_ACTION_ROW(row), calls_view_queue_button(c->name, c->numbers[0].number));
             adw_action_row_add_suffix(ADW_ACTION_ROW(row), call_button(ui, c, 0));
         } else {
             row = adw_expander_row_new();
@@ -851,6 +853,8 @@ static void contacts_fill(contacts_ui_t *ui)
                 adw_preferences_row_set_use_markup(ADW_PREFERENCES_ROW(nr), FALSE);
                 adw_preferences_row_set_title(ADW_PREFERENCES_ROW(nr), c->numbers[k].number);
                 adw_action_row_set_subtitle(ADW_ACTION_ROW(nr), tel_type_label(c->numbers[k].type));
+                adw_action_row_add_suffix(ADW_ACTION_ROW(nr), calls_view_star_button(c->name, c->numbers[k].number));
+                adw_action_row_add_suffix(ADW_ACTION_ROW(nr), calls_view_queue_button(c->name, c->numbers[k].number));
                 adw_action_row_add_suffix(ADW_ACTION_ROW(nr), call_button(ui, c, k));
                 adw_expander_row_add_row(ADW_EXPANDER_ROW(row), nr);
             }

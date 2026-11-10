@@ -957,3 +957,151 @@ msgstr "Ta opp telefonsamtaler over Bluetooth til podkaster"
 
 msgid "podcast;phone;call;bluetooth;recorder;OBS;"
 msgstr "podkast;podcast;telefon;samtale;bluetooth;opptak;OBS;"
+
+msgid "Microphones off for the caller"
+msgstr "Mikrofonene er av for den som ringer"
+
+msgid "Microphones on for the caller"
+msgstr "Mikrofonene er på for den som ringer"
+
+msgid "Call log"
+msgstr "Samtalelogg"
+
+msgid "Hold or resume the call"
+msgstr "Sett samtalen på vent eller fortsett"
+
+msgid "Microphones on or off for the caller"
+msgstr "Mikrofonene av eller på for den som ringer"
+
+msgid "H_old"
+msgstr "Sett på _vent"
+
+msgid "Put the call on hold, or take it back (Ctrl+Shift+P)"
+msgstr "Sett samtalen på vent, eller ta den tilbake (Ctrl+Shift+P)"
+
+msgid "Mics _on"
+msgstr "Mikrofoner _på"
+
+msgid "Whether the caller hears your microphones (Ctrl+Shift+M). OBS and the recording always keep them."
+msgstr "Om den som ringer hører mikrofonene dine (Ctrl+Shift+M). OBS og opptaket beholder dem alltid."
+
+msgid "Call _log"
+msgstr "Samtale_logg"
+
+msgid "Earlier calls: call back, add to favorites or the queue (Ctrl+L)"
+msgstr "Tidligere samtaler: ring tilbake, legg til i favoritter eller køen (Ctrl+L)"
+
+msgid "On hold"
+msgstr "På vent"
+
+msgid "Res_ume"
+msgstr "_Fortsett"
+
+msgid "Mics _off"
+msgstr "Mikrofoner _av"
+
+msgid "Remove %s from favorites"
+msgstr "Fjern %s fra favoritter"
+
+msgid "Add %s to favorites"
+msgstr "Legg %s til i favoritter"
+
+msgid "%s added to the call queue"
+msgstr "%s er lagt til i samtalekøen"
+
+msgid "Add %s to the call queue"
+msgstr "Legg %s til i samtalekøen"
+
+msgid "Type a number to add to the queue"
+msgstr "Skriv inn et nummer du vil legge til i køen"
+
+msgid "Call queue"
+msgstr "Samtalekø"
+
+msgid "People to call, in order. Nothing is dialled until you press Call."
+msgstr "Hvem du skal ringe, i rekkefølge. Ingenting ringes før du trykker Ring."
+
+msgid "Clear _done"
+msgstr "Fjern _ferdige"
+
+msgid "Remove the entries that have been called"
+msgstr "Fjern dem som er ringt"
+
+msgid "Number"
+msgstr "Nummer"
+
+msgid "Number to add to the call queue"
+msgstr "Nummer som skal legges til i samtalekøen"
+
+msgid "Name (optional)"
+msgstr "Navn (valgfritt)"
+
+msgid "Name for the queue entry"
+msgstr "Navn på oppføringen i køen"
+
+msgid "A_dd"
+msgstr "Legg _til"
+
+msgid "Favorites"
+msgstr "Favoritter"
+
+msgid "Done"
+msgstr "Ferdig"
+
+msgid "Move %s up"
+msgstr "Flytt %s opp"
+
+msgid "Move %s down"
+msgstr "Flytt %s ned"
+
+msgid "Remove %s from the queue"
+msgstr "Fjern %s fra køen"
+
+msgid "Call %s"
+msgstr "Ring %s"
+
+msgid "Connect a phone and end any call first"
+msgstr "Koble til en telefon og avslutt pågående samtale først"
+
+msgid "No favorites yet"
+msgstr "Ingen favoritter ennå"
+
+msgid "Use the star in Contacts or the Call log to add one."
+msgstr "Bruk stjernen i Kontakter eller Samtaleloggen for å legge til en."
+
+msgid "Incoming"
+msgstr "Innkommende"
+
+msgid "Outgoing"
+msgstr "Utgående"
+
+msgid "Missed"
+msgstr "Tapt"
+
+msgid "Declined"
+msgstr "Avvist"
+
+msgid "Clear the call log?"
+msgstr "Tømme samtaleloggen?"
+
+msgid "All entries are deleted from this computer. The phone's own call history is not changed."
+msgstr "Alle oppføringene slettes fra denne datamaskinen. Telefonens egen samtalehistorikk endres ikke."
+
+msgid "C_lear"
+msgstr "_Tøm"
+
+msgid "Call %s back"
+msgstr "Ring %s tilbake"
+
+msgid "Calls made and received through Phone Recorder, newest first."
+msgstr "Samtaler ringt og mottatt gjennom Phone Recorder, nyeste først."
+
+msgid "No calls yet."
+msgstr "Ingen samtaler ennå."
+
+msgid "Delete the call log from this computer"
+msgstr "Slett samtaleloggen fra denne datamaskinen"
+
+msgctxt "verb"
+msgid "Call"
+msgstr "Ring"
