@@ -111,6 +111,28 @@ static void fill_demo_state(void)
         "BEGIN:VCARD\nVERSION:3.0\nFN:Podcast hotline\nTEL:+47 800 00 000\nEND:VCARD\n";
     free(APP->contacts);
     APP->n_contacts = vcard_parse(demo_vcf, strlen(demo_vcf), &APP->contacts);
+    /* demo favorites, queue and call log (sealed data folder, fake data) */
+    if (FAVS->len == 0) {
+        fav_toggle("Bea Berg", "+47 401 00 001");
+        fav_toggle("Podcast hotline", "+47 800 00 000");
+    }
+    if (QUEUE->len == 0) {
+        guint first = queue_add("Chris Dahl", "+47 401 00 002", NULL);
+        queue_mark_done(first);
+        queue_add("Kari Nordmann", "+47 22 00 00 03", NULL);
+        queue_add("Ola Nordmann", "+47 401 00 003", NULL);
+    }
+    if (CALL_LOG->len == 0) {
+        gint64 now = g_get_real_time() / G_USEC_PER_SEC;
+        log_entry_t e[] = {
+            {now - 86400 * 2, CALL_DIR_MISSED, "+47 401 00 003", "Ola Nordmann", 0},
+            {now - 86400, CALL_DIR_OUT, "+47 401 00 002", "Chris Dahl", 1384},
+            {now - 7200, CALL_DIR_DECLINED, "+47 999 99 999", "", 0},
+            {now - 3600, CALL_DIR_IN, "+47 401 00 001", "Bea Berg", 612},
+        };
+        for (size_t i = 0; i < G_N_ELEMENTS(e); i++) call_log_add(&e[i]);
+    }
+    calls_view_refresh();
     window_refresh_paired();
     app_update_phone_ui();
 
@@ -191,7 +213,35 @@ static gboolean next_step(gpointer d)
     case 12:
         shot("contacts.png");
         close_dialog();
+        dialog_call_log();
         break;
+    case 13:
+        shot("call-log.png");
+        close_dialog();
+        /* scroll the left panel so the queue starts at the top and the
+         * favorites below it are in view */
+        {
+            GtkWidget *sw = gtk_widget_get_ancestor(APP->queue_group, GTK_TYPE_SCROLLED_WINDOW);
+            GtkWidget *content = sw ? gtk_scrolled_window_get_child(GTK_SCROLLED_WINDOW(sw)) : NULL;
+            graphene_point_t pt;
+            if (content && gtk_widget_compute_point(APP->queue_group, content, &GRAPHENE_POINT_INIT(0, 0), &pt)) {
+                GtkAdjustment *adj = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(sw));
+                gtk_adjustment_set_value(adj, pt.y - 8);
+            }
+        }
+        break;
+    case 14: {
+        char *path = g_build_filename(shot_dir, "queue-and-favorites.png", NULL);
+        if (!app_save_screenshot(path)) {
+            g_free(path);
+            step--;
+            return G_SOURCE_CONTINUE;
+        }
+        LOGI("docs", "saved %s", path);
+        g_free(path);
+        gtk_window_set_focus(APP->window, NULL);
+        break;
+    }
     default: {
         /* BPR_DOC_HOLD=<seconds>: stay up (virtual sources present) so
          * OBS can be photographed using them */

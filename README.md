@@ -37,6 +37,9 @@ what reaches you.
 - Answer, decline, hang up, dial, redial, keypad tones, call waiting (with the
   waiting caller's ID), caller ID, phone battery and signal. Move the call
   audio between phone and computer.
+- Call queue (you start each call yourself, nothing is dialled
+  automatically), favorites, call log, hold, and "microphones off" for the
+  caller without affecting OBS or the recording.
 - Address book: downloads the phone's contacts (kept only on this computer),
   searchable list with call buttons, and caller names for numbers the phone
   sends without one. Works with Android phones, iPhones and other phones that

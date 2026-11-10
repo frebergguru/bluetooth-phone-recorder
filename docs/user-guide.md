@@ -13,7 +13,11 @@ Contents:
 3. [Pair your phone](#3-pair-your-phone)
 4. [The main window](#4-the-main-window)
 5. [Calls](#5-calls)
+   - [Hold and microphones off](#hold-and-microphones-off)
    - [Contacts](#contacts)
+   - [Favorites](#favorites)
+   - [Call queue](#call-queue)
+   - [Call log](#call-log)
 6. [The mixer](#6-the-mixer)
 7. [Recording](#7-recording)
 8. [Preferences](#8-preferences)
@@ -163,6 +167,20 @@ connect again.
 Closing the app during a call does not end the call; it continues on the
 phone.
 
+### Hold and microphones off
+
+During a call, two more buttons appear in the call card:
+
+- **Hold** (Ctrl+Shift+P) puts the call on hold; the card says "On hold".
+  **Resume** takes it back. This uses the phone's own hold, so the caller
+  hears what the phone or network plays for calls on hold. A few phones
+  cannot hold a single call; they then say so.
+- **Mics on / Mics off** (Ctrl+Shift+M) decides whether the caller hears your
+  microphones at all, for example to talk to a co-host off air. OBS, the
+  recording and your headphones keep the microphones either way. It is
+  always on again when the next call starts. To switch single inputs, use
+  their **In call** buttons in the mixer.
+
 ### Contacts
 
 When a phone connects, the app downloads its address book, so you can call
@@ -190,6 +208,41 @@ The phone must allow this the first time:
 
 To stop downloading contacts, turn off **Download the phone's contacts** in
 Preferences, Bluetooth.
+
+### Favorites
+
+The people you call most. Click the star next to a number in **Contacts**
+or the **Call log** to add or remove a favorite. Favorites are listed in the
+main window, each with a call button and a button to put them in the call
+queue.
+
+### Call queue
+
+A list of people to call, in order, for example the guests of today's
+episode. **The queue never dials by itself**: you start each call with its
+own **Call** button, when you are ready.
+
+![The Call queue and Favorites in the main window: three numbered queue entries with Call, move and remove buttons, the first marked "Done", and two favorites with call buttons](images/queue-and-favorites.png)
+
+- Add someone: type the number (and a name if you like) in the queue's
+  fields and press **Add**, or use the **+** button next to a contact, a
+  favorite or a call log entry.
+- Change the order with the up and down arrows; remove an entry with the
+  bin.
+- When a call started from the queue is answered, the entry is marked
+  **Done**. **Clear done** removes those.
+- The queue is kept when you close the app.
+
+### Call log
+
+**Call log** (under **Make a call**, or Ctrl+L) lists the calls made and
+received through Phone Recorder, newest first: incoming, outgoing, missed
+and declined, with date, time and how long you talked. From each entry you
+can call back, star it as a favorite or add it to the queue. **Clear**
+deletes the log from this computer (the phone's own call history is not
+touched).
+
+![The Call log window with incoming, outgoing, missed and declined calls, each with time, duration and buttons to call back, add to favorites and add to the queue](images/call-log.png)
 
 ---
 
@@ -326,6 +379,9 @@ Press F1 (or Ctrl+?) to see them in the app.
 | Ctrl+Shift+H | Decline or hang up |
 | Ctrl+Shift+T | Move call audio between phone and computer |
 | Ctrl+K | Contacts |
+| Ctrl+L | Call log |
+| Ctrl+Shift+P | Hold or resume the call |
+| Ctrl+Shift+M | Microphones on or off for the caller |
 | Ctrl+1 to Ctrl+9 | Input 1 to 9: heard by the caller on or off |
 | Alt+1 to Alt+9 | Input 1 to 9: mute on or off |
 | Ctrl+I | Add an input |
@@ -382,7 +438,7 @@ For a detailed problem report:
 |------|----------|
 | `~/Music/Podcast recordings/` | your recordings (changeable) |
 | `~/.config/bt-phone-recorder/` | settings and remembered phone names |
-| `~/.local/share/bt-phone-recorder/` | pairing keys and the downloaded address book (readable only by you) |
+| `~/.local/share/bt-phone-recorder/` | pairing keys, the downloaded address book, favorites, call queue and call log (readable only by you) |
 | `~/.local/state/bt-phone-recorder/` | log file and Bluetooth traces |
 | `~/.cache/bt-phone-recorder/` | unpacked Bluetooth firmware (recreated when needed) |
 
