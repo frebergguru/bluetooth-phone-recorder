@@ -149,6 +149,6 @@ Hvis OBS er lukket, fortsetter Telefonopptak å virke på egen hånd. Velg
 | Phone Recorder-enhetene mangler i OBS | Start Telefonopptak før du åpner egenskapene for kilden, og åpne så **Device**-listen på nytt. |
 | En OBS-kilde viser ikke utslag | Sjekk at den tilhørende kanalen i Telefonopptak viser nivå. Merk at Demp ikke gjør kilder for enkeltinnganger stille, men hovedmiksen følger Demp. |
 | Alt er dobbelt så høyt eller har ekko i OBS | En lyd fanges to ganger: se [Unngå dobbel lyd](#unngå-dobbel-lyd). |
-| «OBS: wrong OBS websocket password» (feil passord) | Kopier passordet på nytt fra **Tools, WebSocket Server Settings, Show Connect Info**. |
-| «OBS: disconnected from OBS» (frakoblet) | OBS ble lukket, eller WebSocket-serveren er av. Start OBS, og velg så **Koble til nå**. |
+| «OBS: feil passord for OBS websocket» | Kopier passordet på nytt fra **Tools, WebSocket Server Settings, Show Connect Info**. |
+| «OBS: frakoblet fra OBS» | OBS ble lukket, eller WebSocket-serveren er av. Start OBS, og velg så **Koble til nå**. |
 | Ingen kapitler i OBS-opptaket | Bruk OBS 30.2 eller nyere og formatet Hybrid MP4. |

@@ -84,7 +84,7 @@ def inline(text, link_ext, base_dir):
                             # a PDF travels alone: point at the published copy (a
                             # relative link would become a local file path)
                             path = ("https://github.com/frebergguru/bluetooth-phone-recorder"
-                                    "/blob/master/docs/pdf/" + name[:-3] + ".pdf")
+                                    "/blob/master/docs/pdf/" + LANG_SUB + name[:-3] + ".pdf")
                         else:
                             path = name[:-3] + link_ext
                     else:
@@ -107,6 +107,7 @@ def data_uri(path):
 
 
 EMBED = True
+LANG_SUB = ""  # "nb/" for the Norwegian guides
 
 
 def convert(md, src_dir, link_ext):
@@ -245,12 +246,16 @@ def main():
     ap.add_argument("--no-embed", action="store_true",
                     help="load images from their files (for printing to PDF only)")
     a = ap.parse_args()
-    global EMBED
+    global EMBED, LANG_SUB
     EMBED = not a.no_embed
+    # guides in docs/<lang>/ are that language; English ones live in docs/
+    parent = os.path.basename(os.path.dirname(os.path.abspath(a.src)))
+    lang = parent if parent != "docs" else "en"
+    LANG_SUB = "" if lang == "en" else lang + "/"
     md = open(a.src, encoding="utf-8").read()
     title, body = convert(md, os.path.dirname(os.path.abspath(a.src)), a.link_ext)
     footer = '<p class="doc-footer">%s</p>' % html.escape(a.footer) if a.footer else ""
-    doc = ('<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
+    doc = ('<!doctype html>\n<html lang="%s">\n<head>\n<meta charset="utf-8">\n' % lang +
            '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
            '<title>%s</title>\n<style>%s</style>\n</head>\n<body>\n<main>\n%s\n</main>\n%s\n</body>\n</html>\n'
            % (html.escape(title), CSS, body, footer))

@@ -3,6 +3,8 @@
  */
 #include "obs_ws.h"
 
+#include <glib/gi18n.h>
+
 #include <stdio.h>
 #include <string.h>
 
@@ -161,7 +163,7 @@ static void on_closed(SoupWebsocketConnection *conn, gpointer data)
     gushort code = soup_websocket_connection_get_close_code(conn);
     o->identified = FALSE;
     g_clear_object(&o->conn);
-    status(o, FALSE, code == 4009 ? "wrong OBS websocket password" : "disconnected from OBS");
+    status(o, FALSE, code == 4009 ? _("wrong OBS websocket password") : _("disconnected from OBS"));
 }
 
 /* One connection attempt. It holds its own reference to the cancellable, so
@@ -193,7 +195,7 @@ static void on_connected(GObject *src, GAsyncResult *res, gpointer data)
     g_clear_object(&o->cancel); /* this attempt is finished */
     if (!conn) {
         if (!g_error_matches(err, G_IO_ERROR, G_IO_ERROR_CANCELLED))
-            status(o, FALSE, err ? err->message : "connection failed");
+            status(o, FALSE, err ? err->message : _("connection failed"));
         g_clear_error(&err);
         return;
     }
@@ -235,7 +237,7 @@ void obs_ws_connect(obs_ws_t *o, const char *host, int port, const char *passwor
     SoupMessage *msg = soup_message_new("GET", url);
     g_free(url);
     if (!msg) {
-        status(o, FALSE, "invalid OBS address");
+        status(o, FALSE, _("invalid OBS address"));
         return;
     }
     const char *protocols[] = {"obswebsocket.json", NULL};

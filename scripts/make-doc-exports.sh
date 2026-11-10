@@ -17,12 +17,19 @@ py="${BPR_WEASYPRINT_PYTHON:-python3}"
 have_weasy=0
 "$py" -c "import weasyprint" 2>/dev/null && have_weasy=1
 
-for g in user-guide obs-guide; do
-    python3 -I scripts/md2html.py "docs/$g.md" "docs/html/$g.html" --link-ext .html --footer "$footer"
-    if [ $have_weasy = 1 ]; then
-        python3 -I scripts/md2html.py "docs/$g.md" "$work/$g.html" --link-ext .pdf --footer "$footer"
-        "$py" scripts/html2pdf.py "$work/$g.html" "docs/pdf/$g.pdf"
-    fi
+# English guides live in docs/, translations in docs/<lang>/ (same names)
+for lang in "" nb; do
+    src="docs${lang:+/$lang}"
+    [ -f "$src/user-guide.md" ] || continue
+    mkdir -p "docs/html${lang:+/$lang}" "docs/pdf${lang:+/$lang}" "$work${lang:+/$lang}"
+    for g in user-guide obs-guide; do
+        python3 -I scripts/md2html.py "$src/$g.md" "docs/html${lang:+/$lang}/$g.html" --link-ext .html --footer "$footer"
+        if [ $have_weasy = 1 ]; then
+            # the print copy sits next to the source so relative image paths resolve
+            python3 -I scripts/md2html.py "$src/$g.md" "$work${lang:+/$lang}/$g.html" --link-ext .pdf --footer "$footer"
+            "$py" scripts/html2pdf.py "$work${lang:+/$lang}/$g.html" "docs/pdf${lang:+/$lang}/$g.pdf"
+        fi
+    done
 done
-ls -la docs/html docs/pdf
+ls -laR docs/html docs/pdf | grep -E "\.(pdf|html)$"
 [ $have_weasy = 1 ] || echo "WeasyPrint not found: only HTML was made (set BPR_WEASYPRINT_PYTHON)." >&2

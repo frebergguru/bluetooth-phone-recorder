@@ -1105,3 +1105,15 @@ msgstr "Slett samtaleloggen fra denne datamaskinen"
 msgctxt "verb"
 msgid "Call"
 msgstr "Ring"
+
+msgid "wrong OBS websocket password"
+msgstr "feil passord for OBS websocket"
+
+msgid "disconnected from OBS"
+msgstr "frakoblet fra OBS"
+
+msgid "connection failed"
+msgstr "tilkoblingen mislyktes"
+
+msgid "invalid OBS address"
+msgstr "ugyldig OBS-adresse"

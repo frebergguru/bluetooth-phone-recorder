@@ -11,7 +11,7 @@ sample-aligned tracks and are also available to OBS.
 Written in C for Linux, with GTK 4 / libadwaita, PipeWire and its own
 Bluetooth stack (BTstack). It does **not** use BlueZ or bluetoothd.
 
-**Guides:** [User guide](docs/user-guide.md) · [OBS guide](docs/obs-guide.md) · [Building](BUILD.md)
+**Guides:** [User guide](docs/user-guide.md) · [OBS guide](docs/obs-guide.md) · [Building](BUILD.md) · På norsk: [Brukerveiledning](docs/nb/user-guide.md) · [OBS-veiledning](docs/nb/obs-guide.md)
 
 ## What to expect about sound quality
 

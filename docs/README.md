@@ -15,6 +15,13 @@ Also available as standalone files, with all pictures inside:
 | User guide | [user-guide.pdf](pdf/user-guide.pdf) | [user-guide.html](html/user-guide.html) |
 | OBS guide | [obs-guide.pdf](pdf/obs-guide.pdf) | [obs-guide.html](html/obs-guide.html) |
 
+## På norsk
+
+- **[Brukerveiledning](nb/user-guide.md)** ([PDF](pdf/nb/user-guide.pdf), [HTML](html/nb/user-guide.html))
+- **[OBS-veiledning](nb/obs-guide.md)** ([PDF](pdf/nb/obs-guide.pdf), [HTML](html/nb/obs-guide.html))
+
+Skjermbildene i `images/nb/` viser appen på norsk.
+
 The screenshots in `images/` are made automatically from the real app with
 demo data (no phone, no Bluetooth adapter and no sound devices are used):
 
