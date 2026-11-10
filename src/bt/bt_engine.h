@@ -109,7 +109,7 @@ void bt_cmd_end_and_accept(void);  /* AT+CHLD=1 */
 void bt_cmd_query_calls(void);
 void bt_cmd_fetch_contacts(void); /* download the connected phone's address book now */
 
-/* File where a phone's address book is kept (static buffer). */
+/* File where a phone's address book is kept (static buffer, one per thread). */
 const char *bt_contacts_path(const char *addr);
 
 #endif

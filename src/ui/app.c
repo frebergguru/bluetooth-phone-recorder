@@ -40,6 +40,19 @@ void app_announce(const char *text, GtkAccessibleAnnouncementPriority prio)
     if (atspi) gtk_accessible_announce(GTK_ACCESSIBLE(APP->window), text, prio);
 }
 
+/* Copy text that came from the phone (names, numbers, operator) into a
+ * fixed buffer: invalid UTF-8 is repaired and a character cut in half by the
+ * buffer size is dropped, so GTK labels and the key files (which refuse
+ * invalid UTF-8 when read back) always get valid text. */
+static void copy_text(char *dst, size_t len, const char *src)
+{
+    char *valid = g_utf8_make_valid(src ? src : "", -1);
+    snprintf(dst, len, "%s", valid);
+    g_free(valid);
+    const char *end = NULL;
+    if (!g_utf8_validate(dst, -1, &end)) dst[end - dst] = 0;
+}
+
 const char *app_adapter_status(void)
 {
     return APP->bt_status;
@@ -109,13 +122,15 @@ void app_record_stop(void)
     APP->auto_recording = false;
     if (APP->settings.obs_enabled && APP->settings.obs_sync_record) obs_ws_stop_record(APP->obs);
     const char *dir = recorder_session_dir(engine_recorder(APP->engine));
-    char msg[1200];
-    snprintf(msg, sizeof msg, _("Recording saved in %s"), dir);
-    AdwToast *t = adw_toast_new(msg);
-    adw_toast_set_button_label(t, _("Open folder"));
-    adw_toast_set_action_name(t, "app.open-session");
-    adw_toast_set_timeout(t, 10);
-    adw_toast_overlay_add_toast(APP->toasts, t);
+    if (APP->toasts) { /* not while shutting down after the window closed */
+        char msg[1200];
+        snprintf(msg, sizeof msg, _("Recording saved in %s"), dir);
+        AdwToast *t = adw_toast_new(msg);
+        adw_toast_set_button_label(t, _("Open folder"));
+        adw_toast_set_action_name(t, "app.open-session");
+        adw_toast_set_timeout(t, 10);
+        adw_toast_overlay_add_toast(APP->toasts, t);
+    }
     app_announce(_("Recording stopped and saved"), GTK_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_MEDIUM);
     app_update_call_ui();
 }
@@ -198,11 +213,30 @@ void app_dial(const char *number, const char *name, guint queue_id)
         app_toast(_("End the current call first"));
         return;
     }
-    snprintf(APP->dial_number, sizeof APP->dial_number, "%s", number);
+    char dial[PHONE_DIAL_MAX + 1];
+    int r = phone_dial_string(number, dial, sizeof dial);
+    if (r == -2) {
+        app_toast(_("This number is too long to dial"));
+        return;
+    }
+    if (r <= 0) {
+        app_toast(_("This number cannot be dialled: it contains letters or other characters a "
+                    "phone cannot dial"));
+        return;
+    }
+    copy_text(APP->dial_number, sizeof APP->dial_number, number);
     const char *n = name && *name ? name : app_contact_name(number);
-    snprintf(APP->dial_name, sizeof APP->dial_name, "%s", n ? n : "");
+    copy_text(APP->dial_name, sizeof APP->dial_name, n ? n : "");
     APP->dial_queue_id = queue_id;
-    bt_cmd_dial(number);
+    APP->dial_requested_us = g_get_monotonic_time();
+    bt_cmd_dial(dial);
+}
+
+/* Forget what app_dial() asked for: the next call is not that one. */
+static void dial_forget(void)
+{
+    APP->dial_queue_id = 0;
+    APP->dial_number[0] = APP->dial_name[0] = 0;
 }
 
 /* Write the finished call into the call log. Called before the caller
@@ -229,9 +263,10 @@ static void call_log_finish(void)
     if (APP->log_answered)
         e.duration = (int)((g_get_monotonic_time() - APP->log_answer_us) / G_USEC_PER_SEC);
     call_log_add(&e);
-    if (APP->dial_queue_id && APP->log_answered) queue_mark_done(APP->dial_queue_id);
-    APP->dial_queue_id = 0;
-    APP->dial_number[0] = APP->dial_name[0] = 0;
+    /* only the outgoing call we dialled from the queue marks it done */
+    if (APP->dial_queue_id && APP->log_dir == CALL_DIR_OUT && APP->log_answered)
+        queue_mark_done(APP->dial_queue_id);
+    dial_forget();
     APP->log_declined = false;
     calls_view_refresh();
 }
@@ -267,6 +302,12 @@ static void set_call_state(call_state_t st)
     APP->call_state = st;
     /* call log: a new call starts (not a waiting second one) */
     if (old == CALL_IDLE && (st == CALL_INCOMING || st == CALL_OUTGOING || st == CALL_ACTIVE)) {
+        /* A dial request the phone never acted on (it refused the number,
+         * or the call was started on the phone instead) must not give this
+         * call its number, name or queue entry. */
+        if (st == CALL_INCOMING ||
+            g_get_monotonic_time() - APP->dial_requested_us > 30 * G_USEC_PER_SEC)
+            dial_forget();
         APP->log_pending = true;
         APP->log_dir = st == CALL_INCOMING ? CALL_DIR_IN : CALL_DIR_OUT;
         APP->log_answered = false;
@@ -393,9 +434,11 @@ static void handle_bt_event(const bt_event_t *ev)
         break;
     case BT_EV_REMOTE_NAME:
         if (ev->text[0]) {
-            settings_set_phone_name(ev->addr, ev->text);
+            char name[sizeof APP->phone_name];
+            copy_text(name, sizeof name, ev->text);
+            settings_set_phone_name(ev->addr, name);
             if (strcmp(ev->addr, APP->phone_addr) == 0)
-                snprintf(APP->phone_name, sizeof APP->phone_name, "%s", ev->text);
+                snprintf(APP->phone_name, sizeof APP->phone_name, "%s", name);
             window_refresh_paired();
             app_update_phone_ui();
         }
@@ -407,9 +450,12 @@ static void handle_bt_event(const bt_event_t *ev)
         snprintf(APP->settings.last_phone, sizeof APP->settings.last_phone, "%s", ev->addr);
         settings_save(&APP->settings);
         char *name = settings_phone_name(ev->addr);
-        snprintf(APP->phone_name, sizeof APP->phone_name, "%s", name ? name : ev->addr);
+        copy_text(APP->phone_name, sizeof APP->phone_name, name ? name : ev->addr);
         g_free(name);
         APP->battery = APP->signal = -1;
+        /* the engine ends pairing mode when a phone connects: show that */
+        if (APP->pair_switch && gtk_switch_get_active(GTK_SWITCH(APP->pair_switch)))
+            gtk_switch_set_active(GTK_SWITCH(APP->pair_switch), FALSE);
         char msg[200];
         snprintf(msg, sizeof msg, _("%s connected"), APP->phone_name);
         app_announce(msg, GTK_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_MEDIUM);
@@ -449,8 +495,8 @@ static void handle_bt_event(const bt_event_t *ev)
         app_update_call_ui();
         break;
     case BT_EV_CALL_WAITING: {
-        snprintf(APP->waiting_number, sizeof APP->waiting_number, "%s", ev->text);
-        snprintf(APP->waiting_name, sizeof APP->waiting_name, "%s", ev->text2);
+        copy_text(APP->waiting_number, sizeof APP->waiting_number, ev->text);
+        copy_text(APP->waiting_name, sizeof APP->waiting_name, ev->text2);
         name_from_contacts(APP->waiting_number, APP->waiting_name, sizeof APP->waiting_name);
         char msg[256];
         snprintf(msg, sizeof msg, _("Call waiting from %s"),
@@ -483,19 +529,20 @@ static void handle_bt_event(const bt_event_t *ev)
         /* during a call, a new caller ID belongs to a waiting call */
         if (APP->ind_call == 1 && APP->ind_callsetup == 1 && APP->caller_number[0] &&
             strcmp(ev->text, APP->caller_number) != 0) {
-            snprintf(APP->waiting_number, sizeof APP->waiting_number, "%s", ev->text);
-            snprintf(APP->waiting_name, sizeof APP->waiting_name, "%s", ev->text2);
+            copy_text(APP->waiting_number, sizeof APP->waiting_number, ev->text);
+            copy_text(APP->waiting_name, sizeof APP->waiting_name, ev->text2);
+            name_from_contacts(APP->waiting_number, APP->waiting_name, sizeof APP->waiting_name);
             app_update_call_ui();
             break;
         }
-        snprintf(APP->caller_number, sizeof APP->caller_number, "%s", ev->text);
-        snprintf(APP->caller_name, sizeof APP->caller_name, "%s", ev->text2);
+        copy_text(APP->caller_number, sizeof APP->caller_number, ev->text);
+        copy_text(APP->caller_name, sizeof APP->caller_name, ev->text2);
         name_from_contacts(APP->caller_number, APP->caller_name, sizeof APP->caller_name);
         app_update_call_ui();
         break;
     case BT_EV_CALL_STATUS:
         if (ev->text[0] && !APP->caller_number[0]) {
-            snprintf(APP->caller_number, sizeof APP->caller_number, "%s", ev->text);
+            copy_text(APP->caller_number, sizeof APP->caller_number, ev->text);
             name_from_contacts(APP->caller_number, APP->caller_name, sizeof APP->caller_name);
         }
         app_update_call_ui();
@@ -519,7 +566,7 @@ static void handle_bt_event(const bt_event_t *ev)
                         "an adapter report and try another adapter or mode."));
         break;
     case BT_EV_OPERATOR:
-        snprintf(APP->operator_name, sizeof APP->operator_name, "%s", ev->text);
+        copy_text(APP->operator_name, sizeof APP->operator_name, ev->text);
         app_update_call_ui();
         break;
     case BT_EV_SPEAKER_GAIN: break;
@@ -541,7 +588,9 @@ static void handle_bt_event(const bt_event_t *ev)
 static gboolean bt_event_idle(gpointer data)
 {
     bt_event_t *ev = data;
-    if (APP) handle_bt_event(ev);
+    /* Events still queued while the app shuts down (the window and its
+     * widgets are gone) are dropped. */
+    if (APP && APP->window) handle_bt_event(ev);
     g_free(ev);
     return G_SOURCE_REMOVE;
 }
@@ -587,6 +636,7 @@ static void start_bluetooth(void)
 static gboolean meter_tick(gpointer data)
 {
     (void)data;
+    if (!APP->window) return G_SOURCE_REMOVE; /* window destroyed: shutting down */
     for (int c = 0; c < MIXER_MAX_CHANNELS; c++)
         if (APP->strips[c]) strip_update_meters(APP->strips[c]);
     mixer_t *m = engine_mixer(APP->engine);
@@ -617,6 +667,7 @@ static void format_duration(char *buf, size_t len, gint64 us)
 static gboolean slow_tick(gpointer data)
 {
     (void)data;
+    if (!APP->window) return G_SOURCE_REMOVE; /* window destroyed: shutting down */
     char buf[256];
     gint64 now = g_get_monotonic_time();
     if (APP->recording) {

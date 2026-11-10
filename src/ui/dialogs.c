@@ -58,6 +58,7 @@ void dialog_pin(const char *addr)
                                 "the phone, for example 0000."));
     GtkWidget *entry = gtk_entry_new();
     gtk_entry_set_input_purpose(GTK_ENTRY(entry), GTK_INPUT_PURPOSE_DIGITS);
+    gtk_entry_set_max_length(GTK_ENTRY(entry), 16); /* Bluetooth PINs have at most 16 characters */
     gtk_editable_set_text(GTK_EDITABLE(entry), "0000");
     gtk_accessible_update_property(GTK_ACCESSIBLE(entry), GTK_ACCESSIBLE_PROPERTY_LABEL, _("PIN"), -1);
     adw_alert_dialog_set_extra_child(ADW_ALERT_DIALOG(dlg), entry);
@@ -88,6 +89,11 @@ static void chooser_free(gpointer p) { g_free(p); }
 
 static void use_adapter(chooser_t *c, const bt_adapter_t *a)
 {
+    /* switching adapters restarts the app: never in the middle of a recording */
+    if (APP->recording) {
+        app_toast(_("Stop the recording first, then restart"));
+        return;
+    }
     char id[320];
     bt_adapter_to_id(a, id, sizeof id);
     snprintf(APP->settings.adapter_id, sizeof APP->settings.adapter_id, "%s", id);
@@ -208,12 +214,14 @@ static void chooser_fill(chooser_t *c)
         adw_expander_row_add_row(ADW_EXPANDER_ROW(exp), mode);
         c->mode_rows[i] = mode;
 
-        char cur[320];
-        bt_adapter_to_id(a, cur, sizeof cur);
+        /* the saved choice: "usb:<port>" or "userchan:<port>", the port
+         * compared exactly ("1-1" must not match "1-1.2") */
         const char *saved = APP->settings.adapter_id;
-        if (saved[0] && strstr(saved, a->sysfs_name)) {
+        bool is_usb = strncmp(saved, "usb:", 4) == 0, is_uc = strncmp(saved, "userchan:", 9) == 0;
+        if ((is_usb && strcmp(saved + 4, a->sysfs_name) == 0) ||
+            (is_uc && strcmp(saved + 9, a->sysfs_name) == 0)) {
             gtk_check_button_set_active(GTK_CHECK_BUTTON(check), TRUE);
-            if (strncmp(saved, "userchan:", 9) == 0) adw_combo_row_set_selected(ADW_COMBO_ROW(mode), 1);
+            if (is_uc) adw_combo_row_set_selected(ADW_COMBO_ROW(mode), 1);
         }
         adw_preferences_group_add(ADW_PREFERENCES_GROUP(c->list_group), exp);
         c->rows[i] = exp;
@@ -430,15 +438,17 @@ static void on_pref_name_apply(AdwEntryRow *row, gpointer d)
 static void folder_chosen(GObject *src, GAsyncResult *res, gpointer row)
 {
     GFile *f = gtk_file_dialog_select_folder_finish(GTK_FILE_DIALOG(src), res, NULL);
-    if (!f) return;
-    char *path = g_file_get_path(f);
-    if (path) {
-        snprintf(APP->settings.record_dir, sizeof APP->settings.record_dir, "%s", path);
-        adw_action_row_set_subtitle(ADW_ACTION_ROW(row), path);
-        settings_save(&APP->settings);
-        g_free(path);
+    if (f) {
+        char *path = g_file_get_path(f);
+        if (path) {
+            snprintf(APP->settings.record_dir, sizeof APP->settings.record_dir, "%s", path);
+            adw_action_row_set_subtitle(ADW_ACTION_ROW(row), path);
+            settings_save(&APP->settings);
+            g_free(path);
+        }
+        g_object_unref(f);
     }
-    g_object_unref(f);
+    g_object_unref(row); /* the Preferences dialog may have closed meanwhile */
 }
 
 static void on_choose_folder(GtkButton *b, gpointer row)
@@ -449,7 +459,7 @@ static void on_choose_folder(GtkButton *b, gpointer row)
     GFile *init = g_file_new_for_path(APP->settings.record_dir);
     gtk_file_dialog_set_initial_folder(fd, init);
     g_object_unref(init);
-    gtk_file_dialog_select_folder(fd, APP->window, NULL, folder_chosen, row);
+    gtk_file_dialog_select_folder(fd, APP->window, NULL, folder_chosen, g_object_ref(row));
     g_object_unref(fd);
 }
 

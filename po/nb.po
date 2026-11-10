@@ -1117,3 +1117,13 @@ msgstr "tilkoblingen mislyktes"
 
 msgid "invalid OBS address"
 msgstr "ugyldig OBS-adresse"
+
+msgid "This number is too long to dial"
+msgstr "Dette nummeret er for langt til å ringes"
+
+msgid ""
+"This number cannot be dialled: it contains letters or other characters a "
+"phone cannot dial"
+msgstr ""
+"Dette nummeret kan ikke ringes: det inneholder bokstaver eller andre tegn "
+"som en telefon ikke kan ringe"

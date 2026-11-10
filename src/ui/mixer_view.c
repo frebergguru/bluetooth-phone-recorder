@@ -205,6 +205,12 @@ static void remove_response(AdwAlertDialog *d, const char *response, strip_t *s)
 {
     (void)d;
     if (strcmp(response, "remove") != 0) return;
+    /* a recording may have started while the question was open: its track
+     * list is fixed, so the input must stay */
+    if (APP->recording) {
+        app_toast(_("Inputs cannot be removed while recording"));
+        return;
+    }
     int ch = s->ch;
     gtk_box_remove(GTK_BOX(APP->strip_box), s->root);
     APP->strips[ch] = NULL;

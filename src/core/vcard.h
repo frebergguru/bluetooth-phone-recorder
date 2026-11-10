@@ -32,6 +32,19 @@ int vcard_parse(const char *data, size_t len, contact_t **out);
  * "+4712345678"). */
 void phone_normalize(const char *in, char *out, size_t out_len);
 
+/* Longest dial string the hands-free stack accepts (BTstack keeps it in a
+ * 25-byte buffer and aborts on anything longer). */
+#define PHONE_DIAL_MAX 24
+
+/* Turns a number as written ("+47 (123) 45-678", "22 00 00 01 p 12") into
+ * a dial string for the phone: digits, '*', '#', a leading '+' and ','
+ * (pause; 'p' is written as ','). Spaces, '-', '.', '/' and brackets are
+ * dropped. Returns the length, 0 if nothing is left to dial, -1 if the number holds
+ * any other character (letters, "ext."), -2 if it is longer than
+ * PHONE_DIAL_MAX or out_len - 1. A number is never altered in a way that
+ * could reach someone else: anything unclear is refused. */
+int phone_dial_string(const char *in, char *out, size_t out_len);
+
 /* Finds the contact owning number. Numbers match when equal after
  * normalising, or when they share the last 8 digits (so "+47 12345678" and
  * "12345678" match). Returns NULL if none matches. */

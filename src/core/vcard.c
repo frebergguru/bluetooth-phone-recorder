@@ -68,18 +68,51 @@ static void to_utf8(char *s, size_t cap, const char *params)
     }
     bool utf8 = charset[0] ? strcasecmp(charset, "UTF-8") == 0 || strcasecmp(charset, "UTF8") == 0
                            : valid_utf8((const unsigned char *)s);
-    if (utf8) return;
-    iconv_t cd = iconv_open("UTF-8", charset[0] ? charset : "ISO-8859-1");
-    if (cd == (iconv_t)-1) cd = iconv_open("UTF-8", "ISO-8859-1");
-    if (cd == (iconv_t)-1) return;
-    char out[512];
-    char *in = s, *op = out;
-    size_t il = strlen(s), ol = sizeof out - 1;
-    if (iconv(cd, &in, &il, &op, &ol) != (size_t)-1) {
-        *op = 0;
-        snprintf(s, cap, "%s", out);
+    if (!utf8) {
+        iconv_t cd = iconv_open("UTF-8", charset[0] ? charset : "ISO-8859-1");
+        if (cd == (iconv_t)-1) cd = iconv_open("UTF-8", "ISO-8859-1");
+        if (cd != (iconv_t)-1) {
+            char out[512];
+            char *in = s, *op = out;
+            size_t il = strlen(s), ol = sizeof out - 1;
+            if (iconv(cd, &in, &il, &op, &ol) != (size_t)-1) {
+                *op = 0;
+                snprintf(s, cap, "%s", out);
+            }
+            iconv_close(cd);
+        }
     }
-    iconv_close(cd);
+    /* Still not UTF-8 (a wrong CHARSET, a broken "UTF-8" value, or a name
+     * too long to convert): GTK would show nothing, so mark the bad bytes. */
+    if (!valid_utf8((const unsigned char *)s))
+        for (char *c = s; *c; c++)
+            if ((unsigned char)*c >= 0x80) *c = '?';
+}
+
+/* True if the property name and parameters of a raw line (the part before
+ * the first ':') ask for quoted-printable encoding. */
+static bool line_is_qp(const char *line, size_t len)
+{
+    static const char want[] = "QUOTED-PRINTABLE";
+    const size_t wl = sizeof want - 1;
+    for (size_t i = 0; i < len && line[i] != ':'; i++)
+        if (i + wl <= len && strncasecmp(line + i, want, wl) == 0) return true;
+    return false;
+}
+
+/* Cut a string that snprintf may have shortened in the middle of a UTF-8
+ * character back to the last complete one. */
+static void utf8_cut_partial(char *s)
+{
+    size_t l = strlen(s);
+    if (!l) return;
+    size_t i = l;
+    while (i > 0 && ((unsigned char)s[i - 1] & 0xC0) == 0x80) i--; /* continuation bytes */
+    if (i == 0) return;
+    unsigned char lead = (unsigned char)s[i - 1];
+    size_t need = lead < 0x80 ? 1 : (lead & 0xE0) == 0xC0 ? 2 : (lead & 0xF0) == 0xE0 ? 3
+                : (lead & 0xF8) == 0xF0 ? 4 : 1;
+    if (l - (i - 1) < need) s[i - 1] = 0;
 }
 
 static void trim(char *s)
@@ -110,6 +143,7 @@ static void name_from_n(const char *value, char *out, size_t len)
     const int order[] = {3, 1, 2, 0, 4}; /* prefix given middle family suffix */
     for (int k = 0; k < 5; k++) {
         char *v = parts[order[k]];
+        utf8_cut_partial(v);
         trim(v);
         if (!*v) continue;
         size_t ol = strlen(out);
@@ -140,7 +174,7 @@ int vcard_parse(const char *data, size_t len, contact_t **out)
      * them with a space or tab; vCard 2.1 quoted-printable ends with '=') */
     char *buf = malloc(len + 1);
     if (!buf) return 0;
-    size_t w = 0;
+    size_t w = 0, line_start = 0;
     for (size_t i = 0; i < len; i++) {
         char c = data[i];
         if (c == '\r') continue;
@@ -149,10 +183,16 @@ int vcard_parse(const char *data, size_t len, contact_t **out)
                 i++; /* folded line: drop the newline and the single space */
                 continue;
             }
-            if (w > 0 && buf[w - 1] == '=') { /* QP soft line break */
+            /* QP soft line break, only in a quoted-printable property: a
+             * base64 value (PHOTO) also ends in '=', and joining the next
+             * line to it would swallow END:VCARD and lose the contact */
+            if (w > 0 && buf[w - 1] == '=' && line_is_qp(buf + line_start, w - line_start)) {
                 w--;
                 continue;
             }
+            buf[w++] = c;
+            line_start = w;
+            continue;
         }
         buf[w++] = c;
     }
@@ -199,6 +239,7 @@ int vcard_parse(const char *data, size_t len, contact_t **out)
             decode_value(tmp, qp);
             to_utf8(tmp, sizeof tmp, params);
             snprintf(fn, sizeof fn, "%s", tmp);
+            utf8_cut_partial(fn);
             trim(fn);
         } else if (strcmp(prop, "N") == 0) {
             char tmp[512];
@@ -206,11 +247,13 @@ int vcard_parse(const char *data, size_t len, contact_t **out)
             decode_value(tmp, qp);
             to_utf8(tmp, sizeof tmp, params);
             name_from_n(tmp, nname, sizeof nname);
+            utf8_cut_partial(nname);
         } else if (strcmp(prop, "TEL") == 0 && cur.n_numbers < CONTACT_MAX_NUMBERS) {
             decode_value(value, qp);
             trim(value);
             if (*value) {
                 snprintf(cur.numbers[cur.n_numbers].number, sizeof cur.numbers[0].number, "%s", value);
+                utf8_cut_partial(cur.numbers[cur.n_numbers].number);
                 cur.numbers[cur.n_numbers].type = tel_type(params);
                 cur.n_numbers++;
             }
@@ -247,6 +290,38 @@ void phone_normalize(const char *in, char *out, size_t out_len)
             out[j++] = '+';
     }
     out[j] = 0;
+}
+
+int phone_dial_string(const char *in, char *out, size_t out_len)
+{
+    size_t j = 0;
+    bool any = false; /* a digit, '*' or '#': something to dial */
+    if (!out_len) return -2;
+    out[0] = 0;
+    for (size_t i = 0; in[i]; i++) {
+        char c = in[i];
+        if (c == ' ' || c == '\t' || c == '-' || c == '.' || c == '/' || c == '(' || c == ')')
+            continue;
+        if (c == 'p' || c == 'P') c = ',';
+        bool ok = isdigit((unsigned char)c) || c == '*' || c == '#' || c == ',' ||
+                  (c == '+' && j == 0);
+        if (!ok) {
+            out[0] = 0;
+            return -1;
+        }
+        if (j >= PHONE_DIAL_MAX || j + 1 >= out_len) {
+            out[0] = 0;
+            return -2;
+        }
+        if (c != '+' && c != ',') any = true;
+        out[j++] = c;
+    }
+    out[j] = 0;
+    if (!any) {
+        out[0] = 0;
+        return 0;
+    }
+    return (int)j;
 }
 
 static const char *last_digits(const char *norm, size_t k)

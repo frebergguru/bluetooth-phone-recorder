@@ -69,8 +69,10 @@ meson test -C build --print-errorlogs
 
 The tests need no Bluetooth adapter, phone or sound card. They cover the
 ring buffer, the mixer (including the rule that the "In call" switch only
-changes what the caller hears), clock drift correction, the recorder and
-firmware unpacking.
+changes what the caller hears), clock drift correction, the recorder,
+firmware unpacking, the address book (vCard) reader with the cleaning of
+numbers before they are dialled, and a check that the clock drift resampler
+never allocates memory while audio runs.
 
 ## 5. Run without installing
 
@@ -189,7 +191,7 @@ to reset the app itself:
 | Path                                    | Contents                          |
 |-----------------------------------------|-----------------------------------|
 | `~/.config/bt-phone-recorder/`          | settings, remembered phone names  |
-| `~/.local/share/bt-phone-recorder/`     | pairing keys (phones must pair again if deleted) |
+| `~/.local/share/bt-phone-recorder/`     | pairing keys (phones must pair again if deleted), downloaded address books, favorites, call queue and call log |
 | `~/.local/state/bt-phone-recorder/`     | log file and Bluetooth traces     |
 | `~/.cache/bt-phone-recorder/`           | unpacked Bluetooth firmware (recreated automatically) |
 

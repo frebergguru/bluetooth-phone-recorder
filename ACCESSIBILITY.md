@@ -27,8 +27,11 @@ hearing every signal. This is the current state, checked on 2026-11-09:
   the phone's own pairing dialog times out (about 30 seconds), which the app
   cannot change.
 - Text size: follows the desktop setting, plus the app's own setting from
-  100 to 200 percent (Preferences, Accessibility, or Ctrl+plus and
-  Ctrl+minus). It is saved. Text wraps instead of being cut off.
+  100 to 200 percent (Preferences, Language and accessibility, or Ctrl+plus
+  and Ctrl+minus). It is saved. Text wraps instead of being cut off, with
+  two exceptions: a long device name in a strip's device menu ends in "..."
+  (the open list and the tooltip show it in full), and a long recording
+  folder in the status line is shortened in the middle.
 - Reduced motion: the app uses no animations of its own; libadwaita follows
   the system setting. Level meters move because they show live information.
 - Contrast: uses the standard libadwaita colours, which meet WCAG AA, in
@@ -69,9 +72,11 @@ signaler. Dette er status per 9. november 2026:
   telefonens egen paringsdialog går ut på tid (omtrent 30 sekunder), og det
   kan ikke appen endre.
 - Tekststørrelse: følger skrivebordsinnstillingen, og i tillegg har appen sin
-  egen innstilling fra 100 til 200 prosent (Innstillinger, Tilgjengelighet,
-  eller Ctrl+pluss og Ctrl+minus). Den lagres. Tekst brytes i stedet for å
-  bli kuttet.
+  egen innstilling fra 100 til 200 prosent (Innstillinger, Språk og
+  tilgjengelighet, eller Ctrl+pluss og Ctrl+minus). Den lagres. Tekst brytes
+  i stedet for å bli kuttet, med to unntak: et langt enhetsnavn i en kanals
+  enhetsmeny slutter med "..." (den åpne listen og verktøytipset viser hele
+  navnet), og en lang opptaksmappe i statuslinjen forkortes på midten.
 - Redusert bevegelse: appen har ingen egne animasjoner; libadwaita følger
   systeminnstillingen. Nivåmålerne beveger seg fordi de viser levende
   informasjon.

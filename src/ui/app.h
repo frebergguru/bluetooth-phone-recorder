@@ -67,6 +67,7 @@ typedef struct {
     gint64 log_answer_us;   /* monotonic */
     char dial_number[64], dial_name[128]; /* what we dialled, for the log */
     guint dial_queue_id;    /* queue entry being called, 0 = none */
+    gint64 dial_requested_us; /* monotonic time of the last app_dial() */
     contact_t *contacts; /* address book of the current phone, sorted by name */
     int n_contacts;
     bool audio_on_computer;
@@ -161,6 +162,8 @@ void dialog_call_log(void);
 GtkWidget *calls_view_queue_group(void);
 GtkWidget *calls_view_fav_group(void);
 void calls_view_refresh(void);
+/* Refresh only if the Call buttons must change state (phone or call changed). */
+void calls_view_update_callable(void);
 /* Buttons used in lists: star (favorite) and add-to-queue for a number. */
 GtkWidget *calls_view_star_button(const char *name, const char *number);
 GtkWidget *calls_view_queue_button(const char *name, const char *number);

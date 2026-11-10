@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "btstack.h"
@@ -64,6 +65,7 @@ static pthread_t bt_thread;
 static bool thread_started;
 static atomic_bool stop_requested;
 static bool shutting_down;
+static bool hci_ready; /* hci_init() done; before that (Intel firmware download) no HCI call is safe */
 
 static const hci_transport_t *transport;
 static const void *transport_config;
@@ -406,6 +408,14 @@ static void open_tlv(void)
     paths_mkdirs(paths_data_dir());
     snprintf(tlv_path, sizeof tlv_path, "%s/pairings-%s.tlv", paths_data_dir(),
              bd_addr_to_str_with_delimiter(local, '-'));
+    /* The file holds the link keys: make it private before BTstack opens it
+     * (fopen() would create it world-readable, and keeps an existing
+     * file's mode). */
+    int fd = open(tlv_path, O_RDWR | O_CREAT | O_CLOEXEC, 0600);
+    if (fd >= 0) {
+        if (fchmod(fd, 0600) != 0) LOGW("bt", "cannot make the pairing file private");
+        close(fd);
+    }
     tlv_impl = btstack_tlv_posix_init_instance(&tlv_ctx, tlv_path);
     btstack_tlv_set_instance(tlv_impl, &tlv_ctx);
     hci_set_link_key_db(btstack_link_key_db_tlv_get_instance(tlv_impl, &tlv_ctx));
@@ -570,7 +580,8 @@ static void hci_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, 
 
 const char *bt_contacts_path(const char *addr)
 {
-    static char path[700];
+    /* per thread: the UI and the Bluetooth thread both build these paths */
+    static _Thread_local char path[700];
     char clean[18];
     snprintf(clean, sizeof clean, "%s", addr);
     for (char *c = clean; *c; c++)
@@ -627,10 +638,11 @@ static void contacts_save(void)
     char tmp[720];
     snprintf(tmp, sizeof tmp, "%s.part", path);
     int fd = open(tmp, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
-    bool ok = fd >= 0;
-    if (ok) {
+    /* a .part file left over from an older run keeps its mode: force 0600 */
+    bool ok = fd >= 0 && fchmod(fd, 0600) == 0;
+    if (fd >= 0) {
         size_t off = 0;
-        while (off < pb_len) {
+        while (ok && off < pb_len) {
             ssize_t w = write(fd, pb_data + off, pb_len - off);
             if (w <= 0) {
                 ok = false;
@@ -876,6 +888,16 @@ static void shutdown_timeout(btstack_timer_source_t *ts)
 
 static void exec_cmd(const cmd_t *c)
 {
+    if (!hci_ready) {
+        /* Intel firmware is still loading: the HCI layer does not exist yet
+         * and every gap_ or hfp_ call would dereference it. Only leaving is
+         * possible. */
+        if (c->type == CMD_SHUTDOWN) {
+            shutting_down = true;
+            btstack_run_loop_trigger_exit();
+        }
+        return;
+    }
     bd_addr_t addr;
     bool has_addr = c->addr[0] && sscanf_bd_addr(c->addr, addr);
     bool slc = acl_handle != HCI_CON_HANDLE_INVALID;
@@ -925,7 +947,18 @@ static void exec_cmd(const cmd_t *c)
     case CMD_ANSWER: if (slc) hfp_hf_answer_incoming_call(acl_handle); break;
     case CMD_REJECT: if (slc) hfp_hf_reject_incoming_call(acl_handle); break;
     case CMD_HANGUP: if (slc) hfp_hf_terminate_call(acl_handle); break;
-    case CMD_DIAL: if (slc && c->text[0]) hfp_hf_dial_number(acl_handle, (char *)c->text); break;
+    case CMD_DIAL: {
+        /* BTstack copies the number into a 25-byte buffer and aborts on a
+         * longer one; the UI cleans numbers (phone_dial_string), this is the
+         * last line of defence */
+        char dial[PHONE_DIAL_MAX + 1];
+        if (phone_dial_string(c->text, dial, sizeof dial) <= 0) {
+            LOGW("bt", "dial request refused: not a dialable number");
+            break;
+        }
+        if (slc) hfp_hf_dial_number(acl_handle, dial);
+        break;
+    }
     case CMD_REDIAL: if (slc) hfp_hf_redial_last_number(acl_handle); break;
     case CMD_DTMF: if (slc) hfp_hf_send_dtmf_code(acl_handle, c->text[0]); break;
     case CMD_AUDIO_TO_COMPUTER: if (slc) hfp_hf_establish_audio_connection(acl_handle); break;
@@ -1036,6 +1069,7 @@ void bt_cmd_fetch_contacts(void) { post(mk(CMD_FETCH_CONTACTS, NULL, NULL, 0)); 
 static void stack_init(void)
 {
     hci_init(transport, transport_config);
+    hci_ready = true;
 
     hci_cb_reg.callback = &hci_handler;
     hci_add_event_handler(&hci_cb_reg);
@@ -1080,7 +1114,10 @@ static void stack_init(void)
     sdp_register_service(pbap_sdp_record);
 
     gap_set_local_name(cfg_local_name);
-    gap_discoverable_control(1);
+    /* Not visible to other devices until the user turns on "Pairing mode"
+     * (the switch starts off). Paired phones still connect: the hands-free
+     * service keeps the adapter connectable. */
+    gap_discoverable_control(0);
     gap_set_class_of_device(0x200408); /* Audio, hands-free device */
     gap_set_default_link_policy_settings(LM_LINK_POLICY_ENABLE_ROLE_SWITCH |
                                          LM_LINK_POLICY_ENABLE_SNIFF_MODE);
@@ -1121,6 +1158,13 @@ static void *bt_main(void *arg)
     atomic_store(&run_loop_ready, true);
 
     if (cfg_trace[0]) {
+        /* The trace holds caller numbers and the address book: create it
+         * private first (BTstack opens it world-readable). */
+        int tfd = open(cfg_trace, O_WRONLY | O_CREAT | O_CLOEXEC, 0600);
+        if (tfd >= 0) {
+            if (fchmod(tfd, 0600) != 0) LOGW("bt", "cannot make the trace file private");
+            close(tfd);
+        }
         hci_dump_posix_fs_open(cfg_trace, HCI_DUMP_PACKETLOGGER);
         hci_dump_init(hci_dump_posix_fs_get_instance());
         LOGI("bt", "HCI trace: %s", cfg_trace);
@@ -1176,7 +1220,12 @@ static void *bt_main(void *arg)
     btstack_run_loop_execute();
 
     shutting_down = true;
-    hci_close(); /* closes the transport (USB, socket or serial port) */
+    if (hci_ready) {
+        hci_close(); /* closes the transport (USB, socket or serial port) */
+        hci_ready = false;
+    } else if (transport && transport->close) {
+        transport->close(); /* the Intel firmware loader opened it, HCI never started */
+    }
     if (sco_handle != HCI_CON_HANDLE_INVALID) {
         sco_handle = HCI_CON_HANDLE_INVALID;
         phone_link_end(cfg.link);

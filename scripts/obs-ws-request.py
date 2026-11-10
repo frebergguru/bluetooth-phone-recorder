@@ -34,7 +34,7 @@ def recv_msg():
                 else: ln = struct.unpack(">H", buf[2:4])[0]; off = 4
             elif ln == 127:
                 if len(buf) >= 10: ln = struct.unpack(">Q", buf[2:10])[0]; off = 10
-            if len(buf) >= off + ln and not (buf[1] & 0x7F in (126, 127) and off == 2):
+            if len(buf) >= off + ln and not ((buf[1] & 0x7F) in (126, 127) and off == 2):
                 payload, buf = buf[off:off + ln], buf[off + ln:]
                 return json.loads(payload)
         chunk = s.recv(65536)

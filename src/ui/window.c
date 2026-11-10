@@ -454,7 +454,7 @@ void app_update_call_ui(void)
     gboolean can_dial = APP->phone_connected && APP->call_state == CALL_IDLE;
     gtk_widget_set_sensitive(APP->dial_btn, can_dial);
     gtk_widget_set_sensitive(APP->redial_btn, can_dial);
-    calls_view_refresh(); /* queue/favorite call buttons follow the same rule */
+    calls_view_update_callable(); /* queue/favorite call buttons follow the same rule */
 
     /* recording controls */
     AdwButtonContent *rc = ADW_BUTTON_CONTENT(gtk_button_get_child(GTK_BUTTON(APP->record_btn)));
@@ -562,6 +562,23 @@ static GMenuModel *build_menu(void)
     return G_MENU_MODEL(menu);
 }
 
+/* The window goes away before the application's shutdown handler runs, and
+ * idle callbacks queued until then (Bluetooth events, meter ticks, an OBS
+ * status) must not touch its destroyed widgets. */
+static void on_window_destroy(GtkWidget *w, gpointer d)
+{
+    (void)w;
+    (void)d;
+    APP->window = NULL;
+    APP->toasts = NULL;
+    APP->paired_group = NULL;
+    APP->pair_switch = NULL;
+    APP->queue_group = NULL;
+    APP->fav_group = NULL;
+    APP->monitor_dropdown = NULL;
+    APP->meter_full_l = APP->meter_full_r = APP->meter_call = APP->meter_monitor = NULL;
+}
+
 void window_build(void)
 {
     GtkWidget *win = adw_application_window_new(GTK_APPLICATION(APP->gapp));
@@ -570,6 +587,7 @@ void window_build(void)
     gtk_window_set_default_size(APP->window, 1280, 800);
     gtk_widget_add_css_class(win, "bpr-main");
     g_signal_connect(win, "close-request", G_CALLBACK(on_close_request), NULL);
+    g_signal_connect(win, "destroy", G_CALLBACK(on_window_destroy), NULL);
 
     GtkWidget *tv = adw_toolbar_view_new();
     GtkWidget *hb = adw_header_bar_new();

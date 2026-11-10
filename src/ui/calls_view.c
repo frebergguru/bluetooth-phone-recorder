@@ -11,6 +11,10 @@
 
 static void a11y(GtkWidget *w, const char *label)
 {
+    /* A button's visible text ("Call") is linked as "labelled-by", which
+     * screen readers prefer over an explicit label: every queue row would
+     * then just say "Call". Drop the link so "Call <name>" is read. */
+    gtk_accessible_reset_relation(GTK_ACCESSIBLE(w), GTK_ACCESSIBLE_RELATION_LABELLED_BY);
     gtk_accessible_update_property(GTK_ACCESSIBLE(w), GTK_ACCESSIBLE_PROPERTY_LABEL, label, -1);
 }
 
@@ -218,10 +222,13 @@ static void clear_rows(GtkWidget *group, GtkWidget **rows, int max)
     }
 }
 
+static int last_callable = -1; /* can_call() when the rows were last built */
+
 void calls_view_refresh(void)
 {
     if (!APP->queue_group || !QUEUE) return;
     gboolean callable = can_call();
+    last_callable = callable;
 
     /* queue */
     clear_rows(APP->queue_group, APP->queue_rows, 64);
@@ -294,6 +301,13 @@ void calls_view_refresh(void)
         adw_preferences_group_add(ADW_PREFERENCES_GROUP(APP->fav_group), row);
         APP->fav_rows[i] = row;
     }
+}
+
+void calls_view_update_callable(void)
+{
+    /* Rebuilding the rows moves keyboard focus away, so only do it when the
+     * Call buttons actually change (not on every battery or signal update). */
+    if ((int)can_call() != last_callable) calls_view_refresh();
 }
 
 /* ---- call log window ---- */

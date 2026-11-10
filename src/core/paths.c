@@ -5,6 +5,7 @@
 
 #include <errno.h>
 #include <limits.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,28 +27,42 @@ static const char *xdg(char *buf, size_t len, const char *env, const char *fallb
     return buf;
 }
 
+/* The folders are worked out once (the environment does not change while
+ * the app runs): the UI and the Bluetooth thread both ask for them, and
+ * rewriting a shared buffer on every call would be a data race. */
+static char config_dir[PATH_MAX], state_dir[PATH_MAX], data_dir[PATH_MAX], cache_dir[PATH_MAX];
+static pthread_once_t dirs_once = PTHREAD_ONCE_INIT;
+
+static void dirs_init(void)
+{
+    xdg(config_dir, sizeof config_dir, "XDG_CONFIG_HOME", ".config");
+    xdg(state_dir, sizeof state_dir, "XDG_STATE_HOME", ".local/state");
+    xdg(data_dir, sizeof data_dir, "XDG_DATA_HOME", ".local/share");
+    xdg(cache_dir, sizeof cache_dir, "XDG_CACHE_HOME", ".cache");
+}
+
 const char *paths_config_dir(void)
 {
-    static char buf[PATH_MAX];
-    return xdg(buf, sizeof buf, "XDG_CONFIG_HOME", ".config");
+    pthread_once(&dirs_once, dirs_init);
+    return config_dir;
 }
 
 const char *paths_state_dir(void)
 {
-    static char buf[PATH_MAX];
-    return xdg(buf, sizeof buf, "XDG_STATE_HOME", ".local/state");
+    pthread_once(&dirs_once, dirs_init);
+    return state_dir;
 }
 
 const char *paths_data_dir(void)
 {
-    static char buf[PATH_MAX];
-    return xdg(buf, sizeof buf, "XDG_DATA_HOME", ".local/share");
+    pthread_once(&dirs_once, dirs_init);
+    return data_dir;
 }
 
 const char *paths_cache_dir(void)
 {
-    static char buf[PATH_MAX];
-    return xdg(buf, sizeof buf, "XDG_CACHE_HOME", ".cache");
+    pthread_once(&dirs_once, dirs_init);
+    return cache_dir;
 }
 
 int paths_mkdirs(const char *path)
