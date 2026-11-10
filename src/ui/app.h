@@ -141,6 +141,7 @@ void strip_toggle_send(int ordinal);  /* 1-based ordinal among input strips */
 void strip_toggle_mute(int ordinal);
 int mixer_view_add_input(const char *target, const char *label); /* channel or -1 */
 GtkWidget *mixer_view_master_section(void);
+GtkWidget *mixer_view_device_dropdown(void);
 GtkWidget *strip_widget(strip_t *s);
 void strip_save(strip_t *s, settings_input_t *out);
 int strip_channel(strip_t *s);

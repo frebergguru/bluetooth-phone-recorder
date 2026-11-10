@@ -97,6 +97,49 @@ static void update_a11y_labels(strip_t *s)
     update_send_button(s);
 }
 
+/* ---- device menus: long names are shortened with "..." in the button (the
+ * open list shows them in full), so strip widths stay the same in every
+ * language and with long device names ---- */
+
+static void dd_setup(GtkSignalListItemFactory *f, GtkListItem *item, gpointer ellipsize)
+{
+    (void)f;
+    GtkWidget *l = gtk_label_new(NULL);
+    gtk_label_set_xalign(GTK_LABEL(l), 0);
+    if (GPOINTER_TO_INT(ellipsize)) {
+        gtk_label_set_ellipsize(GTK_LABEL(l), PANGO_ELLIPSIZE_END);
+        gtk_label_set_max_width_chars(GTK_LABEL(l), 12);
+        gtk_label_set_width_chars(GTK_LABEL(l), 8);
+    }
+    gtk_list_item_set_child(item, l);
+}
+
+static void dd_bind(GtkSignalListItemFactory *f, GtkListItem *item, gpointer d)
+{
+    (void)f;
+    (void)d;
+    GtkStringObject *s = gtk_list_item_get_item(item);
+    const char *text = s ? gtk_string_object_get_string(s) : "";
+    gtk_label_set_text(GTK_LABEL(gtk_list_item_get_child(item)), text);
+    gtk_widget_set_tooltip_text(gtk_list_item_get_child(item), text);
+}
+
+GtkWidget *mixer_view_device_dropdown(void)
+{
+    GtkWidget *dd = gtk_drop_down_new(NULL, NULL);
+    GtkListItemFactory *button = gtk_signal_list_item_factory_new();
+    g_signal_connect(button, "setup", G_CALLBACK(dd_setup), GINT_TO_POINTER(1));
+    g_signal_connect(button, "bind", G_CALLBACK(dd_bind), NULL);
+    GtkListItemFactory *list = gtk_signal_list_item_factory_new();
+    g_signal_connect(list, "setup", G_CALLBACK(dd_setup), GINT_TO_POINTER(0));
+    g_signal_connect(list, "bind", G_CALLBACK(dd_bind), NULL);
+    gtk_drop_down_set_factory(GTK_DROP_DOWN(dd), button);
+    gtk_drop_down_set_list_factory(GTK_DROP_DOWN(dd), list);
+    g_object_unref(button);
+    g_object_unref(list);
+    return dd;
+}
+
 /* ---- callbacks ---- */
 
 static void on_gain(GtkRange *r, strip_t *s)
@@ -239,7 +282,7 @@ strip_t *strip_new(int channel)
     gtk_box_append(GTK_BOX(in), s->name);
 
     if (input) {
-        s->device = gtk_drop_down_new(NULL, NULL);
+        s->device = mixer_view_device_dropdown();
         gtk_widget_set_tooltip_text(s->device, _("Which microphone or input this channel uses"));
         g_signal_connect(s->device, "notify::selected", G_CALLBACK(on_device), s);
         gtk_box_append(GTK_BOX(in), s->device);
@@ -563,7 +606,7 @@ GtkWidget *mixer_view_master_section(void)
     gtk_box_append(GTK_BOX(mon_row), APP->monitor_switch);
     gtk_box_append(GTK_BOX(box), mon_row);
 
-    APP->monitor_dropdown = gtk_drop_down_new(NULL, NULL);
+    APP->monitor_dropdown = mixer_view_device_dropdown();
     a11y_label(APP->monitor_dropdown, _("Monitor output device"));
     g_signal_connect(APP->monitor_dropdown, "notify::selected", G_CALLBACK(on_monitor_device), NULL);
     gtk_box_append(GTK_BOX(box), APP->monitor_dropdown);

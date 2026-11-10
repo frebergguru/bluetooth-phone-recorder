@@ -47,6 +47,8 @@ language=${DOC_LANGUAGE:-en}
 INI
 
 export WORK="$work" BIN="$bin" OUT="$out" REAL_RUNTIME="$real_runtime"
+# use the translations from this build, not an older installed copy
+export BPR_LOCALEDIR="$PWD/build/po"
 # The private bus itself starts inside the sealed folders, so anything it
 # might start also lives there. Portals are disabled so nothing is started.
 env -u WAYLAND_DISPLAY -u DISPLAY -u SESSION_MANAGER \
