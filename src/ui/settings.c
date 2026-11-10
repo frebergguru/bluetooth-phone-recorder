@@ -28,6 +28,7 @@ void settings_defaults(settings_t *s)
     s->super_wideband = TRUE;
     s->secure_connections = TRUE;
     s->phone_nrec_off = TRUE;
+    s->fetch_contacts = TRUE;
     const char *music = g_get_user_special_dir(G_USER_DIRECTORY_MUSIC);
     char *dir = g_build_filename(music ? music : g_get_home_dir(), "Podcast recordings", NULL);
     snprintf(s->record_dir, sizeof s->record_dir, "%s", dir);
@@ -104,6 +105,7 @@ void settings_load(settings_t *s)
     get_bool(kf, "bluetooth", "super-wideband", &s->super_wideband);
     get_bool(kf, "bluetooth", "secure-connections", &s->secure_connections);
     get_bool(kf, "bluetooth", "phone-nrec-off", &s->phone_nrec_off);
+    get_bool(kf, "bluetooth", "fetch-contacts", &s->fetch_contacts);
     get_str(kf, "bluetooth", "firmware-dir", s->firmware_dir, sizeof s->firmware_dir);
     get_bool(kf, "bluetooth", "hci-trace", &s->hci_trace);
     get_str(kf, "bluetooth", "last-phone", s->last_phone, sizeof s->last_phone);
@@ -172,6 +174,7 @@ void settings_save(const settings_t *s)
     g_key_file_set_boolean(kf, "bluetooth", "super-wideband", s->super_wideband);
     g_key_file_set_boolean(kf, "bluetooth", "secure-connections", s->secure_connections);
     g_key_file_set_boolean(kf, "bluetooth", "phone-nrec-off", s->phone_nrec_off);
+    g_key_file_set_boolean(kf, "bluetooth", "fetch-contacts", s->fetch_contacts);
     g_key_file_set_string(kf, "bluetooth", "firmware-dir", s->firmware_dir);
     g_key_file_set_boolean(kf, "bluetooth", "hci-trace", s->hci_trace);
     g_key_file_set_string(kf, "bluetooth", "last-phone", s->last_phone);

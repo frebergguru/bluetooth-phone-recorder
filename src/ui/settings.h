@@ -28,6 +28,7 @@ typedef struct {
     char adapter_id[320]; /* see bt_adapter_to_id(), "" = not chosen yet */
     char local_name[64];
     gboolean wideband, super_wideband, secure_connections, phone_nrec_off;
+    gboolean fetch_contacts;
     char firmware_dir[512];
     gboolean hci_trace;
     char last_phone[18];

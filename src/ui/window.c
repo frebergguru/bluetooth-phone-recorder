@@ -3,6 +3,7 @@
  * mixer on the right, status line at the bottom.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <glib/gstdio.h>
 #include <string.h>
 
 #include "app.h"
@@ -66,7 +67,12 @@ static void on_connect_clicked(GtkButton *b, gpointer addr)
 static void forget_response(AdwAlertDialog *dlg, const char *response, gpointer addr)
 {
     (void)dlg;
-    if (strcmp(response, "forget") == 0) bt_cmd_forget(addr);
+    if (strcmp(response, "forget") == 0) {
+        bt_cmd_forget(addr);
+        /* the saved address book belongs to that phone: remove it too */
+        g_unlink(bt_contacts_path(addr));
+        if (strcmp(APP->phone_addr, addr) == 0) app_load_contacts(NULL);
+    }
     g_free(addr);
 }
 
@@ -273,6 +279,10 @@ static GtkWidget *build_phone_panel(void)
     gtk_box_append(GTK_BOX(dial_row), APP->dial_btn);
     gtk_box_append(GTK_BOX(dial_row), APP->redial_btn);
     adw_preferences_group_add(ADW_PREFERENCES_GROUP(dial), dial_row);
+    APP->contacts_btn = icon_text_button("x-office-address-book-symbolic", _("C_ontacts"), "app.contacts");
+    gtk_widget_set_tooltip_text(APP->contacts_btn, _("Search the phone's address book and call (Ctrl+K)"));
+    gtk_widget_set_margin_top(APP->contacts_btn, 6);
+    adw_preferences_group_add(ADW_PREFERENCES_GROUP(dial), APP->contacts_btn);
     GtkWidget *exp = gtk_expander_new_with_mnemonic(_("_Keypad (also sends tones during a call)"));
     APP->keypad = build_keypad();
     gtk_widget_set_margin_top(APP->keypad, 6);

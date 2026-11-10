@@ -5,6 +5,7 @@
 
 #include "bt_engine.h"
 
+#include <fcntl.h>
 #include <inttypes.h>
 #include <pthread.h>
 #include <stdatomic.h>
@@ -27,6 +28,8 @@
 #include "classic/btstack_sbc.h"
 #include "classic/btstack_sbc_bluedroid.h"
 #include "classic/hfp_codec.h"
+#include "classic/goep_client.h"
+#include "classic/pbap_client.h"
 #include "hci_dump_posix_fs.h"
 #include "hci_transport_h4.h"
 #include "hci_transport_h5.h"
@@ -34,6 +37,7 @@
 
 #include "../core/log.h"
 #include "../core/paths.h"
+#include "../core/vcard.h"
 #include "firmware.h"
 #include "hci_user_channel.h"
 #include "usb_guard.h"
@@ -83,6 +87,16 @@ static uint32_t sco_rx_packets;
 static btstack_timer_source_t reconnect_timer;
 static btstack_timer_source_t silence_timer;
 static btstack_timer_source_t shutdown_timer;
+static btstack_timer_source_t contacts_timer;
+
+/* address book (PBAP) */
+#define CONTACTS_MAX_BYTES (16u * 1024 * 1024)
+static uint8_t pbap_sdp_record[150];
+static uint16_t pbap_cid;
+static bd_addr_t pbap_addr;
+static char *pb_data;
+static size_t pb_len, pb_cap;
+static bool pb_overflow;
 
 /* controller report */
 static struct {
@@ -110,7 +124,7 @@ typedef enum {
     CMD_LIST_PAIRED, CMD_ANSWER, CMD_REJECT, CMD_HANGUP, CMD_DIAL, CMD_REDIAL, CMD_DTMF,
     CMD_AUDIO_TO_COMPUTER, CMD_AUDIO_TO_PHONE, CMD_HOLD_ACCEPT, CMD_END_ACCEPT, CMD_QUERY_CALLS,
     CMD_REJECT_WAITING,
-    CMD_SET_NAME, CMD_SHUTDOWN,
+    CMD_SET_NAME, CMD_FETCH_CONTACTS, CMD_SHUTDOWN,
 } cmd_type_t;
 
 typedef struct {
@@ -551,6 +565,160 @@ static void hci_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, 
 }
 
 /* ------------------------------------------------------------------ */
+/* Address book (Phone Book Access Profile)                            */
+/* ------------------------------------------------------------------ */
+
+const char *bt_contacts_path(const char *addr)
+{
+    static char path[700];
+    char clean[18];
+    snprintf(clean, sizeof clean, "%s", addr);
+    for (char *c = clean; *c; c++)
+        if (*c == ':') *c = '-';
+    snprintf(path, sizeof path, "%s/contacts-%s.vcf", paths_data_dir(), clean);
+    return path;
+}
+
+static void contacts_emit_error(bt_contacts_error_t why, const char *detail)
+{
+    bt_event_t ev = {.type = BT_EV_CONTACTS, .number = -1, .state = why};
+    snprintf(ev.text, sizeof ev.text, "%s", detail ? detail : "");
+    emit(&ev);
+}
+
+static void pb_reset(void)
+{
+    free(pb_data);
+    pb_data = NULL;
+    pb_len = pb_cap = 0;
+    pb_overflow = false;
+}
+
+static void pb_append(const uint8_t *data, uint16_t len)
+{
+    if (pb_overflow) return;
+    if (pb_len + len > CONTACTS_MAX_BYTES) {
+        pb_overflow = true;
+        return;
+    }
+    if (pb_len + len > pb_cap) {
+        size_t cap = pb_cap ? pb_cap * 2 : 65536;
+        while (cap < pb_len + len) cap *= 2;
+        char *n = realloc(pb_data, cap);
+        if (!n) {
+            pb_overflow = true;
+            return;
+        }
+        pb_data = n;
+        pb_cap = cap;
+    }
+    memcpy(pb_data + pb_len, data, len);
+    pb_len += len;
+}
+
+/* Keep the address book only on this computer, readable by the user only. */
+static void contacts_save(void)
+{
+    contact_t *list = NULL;
+    int n = vcard_parse(pb_data, pb_len, &list);
+    free(list);
+    paths_mkdirs(paths_data_dir());
+    const char *path = bt_contacts_path(bd_addr_to_str(pbap_addr));
+    char tmp[720];
+    snprintf(tmp, sizeof tmp, "%s.part", path);
+    int fd = open(tmp, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
+    bool ok = fd >= 0;
+    if (ok) {
+        size_t off = 0;
+        while (off < pb_len) {
+            ssize_t w = write(fd, pb_data + off, pb_len - off);
+            if (w <= 0) {
+                ok = false;
+                break;
+            }
+            off += (size_t)w;
+        }
+        if (close(fd) != 0) ok = false;
+    }
+    if (ok && rename(tmp, path) == 0) {
+        bt_event_t ev = {.type = BT_EV_CONTACTS, .number = n};
+        snprintf(ev.text, sizeof ev.text, "%s", path);
+        snprintf(ev.addr, sizeof ev.addr, "%s", bd_addr_to_str(pbap_addr));
+        emit(&ev);
+        LOGI("bt", "address book: %d contacts", n);
+    } else {
+        unlink(tmp);
+        contacts_emit_error(BT_CONTACTS_FAILED, "could not save the address book");
+    }
+}
+
+static void pbap_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size)
+{
+    (void)channel;
+    if (packet_type == PBAP_DATA_PACKET) {
+        pb_append(packet, size);
+        return;
+    }
+    if (packet_type != HCI_EVENT_PACKET || hci_event_packet_get_type(packet) != HCI_EVENT_PBAP_META)
+        return;
+    switch (hci_event_pbap_meta_get_subevent_code(packet)) {
+    case PBAP_SUBEVENT_CONNECTION_OPENED: {
+        uint8_t status = pbap_subevent_connection_opened_get_status(packet);
+        if (status != ERROR_CODE_SUCCESS) {
+            /* Android: the user declined (or never answered) the prompt;
+             * iPhone: "Sync Contacts" is off; old phones: no phonebook. */
+            LOGI("bt", "address book connection refused (0x%02x)", status);
+            pbap_cid = 0;
+            contacts_emit_error(BT_CONTACTS_REFUSED, NULL);
+            break;
+        }
+        pb_reset();
+        pbap_set_property_selector(pbap_cid, PBAP_PROPERTY_MASK_VERSION | PBAP_PROPERTY_MASK_FN |
+                                                 PBAP_PROPERTY_MASK_N | PBAP_PROPERTY_MASK_TEL);
+        pbap_pull_phonebook(pbap_cid, "telecom/pb.vcf");
+        break;
+    }
+    case PBAP_SUBEVENT_AUTHENTICATION_REQUEST:
+        /* phones do not normally ask for this; there is no PIN to give */
+        pbap_disconnect(pbap_cid);
+        contacts_emit_error(BT_CONTACTS_REFUSED, NULL);
+        break;
+    case PBAP_SUBEVENT_OPERATION_COMPLETED: {
+        uint8_t status = pbap_subevent_operation_completed_get_status(packet);
+        if (status == ERROR_CODE_SUCCESS && !pb_overflow)
+            contacts_save();
+        else
+            contacts_emit_error(BT_CONTACTS_FAILED, pb_overflow ? "address book too large" : NULL);
+        pb_reset();
+        pbap_disconnect(pbap_cid);
+        break;
+    }
+    case PBAP_SUBEVENT_CONNECTION_CLOSED:
+        pbap_cid = 0;
+        pb_reset();
+        break;
+    default: break;
+    }
+}
+
+static void contacts_fetch(void)
+{
+    if (!phone_connected || pbap_cid) return;
+    memcpy(pbap_addr, phone_addr, 6);
+    uint8_t st = pbap_connect(&pbap_handler, pbap_addr, &pbap_cid);
+    if (st != ERROR_CODE_SUCCESS) {
+        pbap_cid = 0;
+        LOGI("bt", "address book: cannot connect now (0x%02x)", st);
+    }
+}
+
+static void contacts_timer_fired(btstack_timer_source_t *ts)
+{
+    (void)ts;
+    contacts_fetch();
+}
+
+/* ------------------------------------------------------------------ */
 /* HFP events                                                          */
 /* ------------------------------------------------------------------ */
 
@@ -582,8 +750,16 @@ static void hfp_handler(uint8_t packet_type, uint16_t channel, uint8_t *event, u
         hfp_hf_activate_calling_line_notification(acl_handle);
         hfp_hf_activate_call_waiting_notification(acl_handle); /* +CCWA: who is waiting */
         if (cfg.disable_phone_nrec) hfp_hf_deactivate_echo_canceling_and_noise_reduction(acl_handle);
+        if (cfg.fetch_contacts) {
+            /* give the hands-free setup a moment before the second channel */
+            btstack_run_loop_set_timer_handler(&contacts_timer, contacts_timer_fired);
+            btstack_run_loop_set_timer(&contacts_timer, 3000);
+            btstack_run_loop_add_timer(&contacts_timer);
+        }
         break;
     case HFP_SUBEVENT_SERVICE_LEVEL_CONNECTION_RELEASED:
+        btstack_run_loop_remove_timer(&contacts_timer);
+        if (pbap_cid) pbap_disconnect(pbap_cid);
         if (sco_handle != HCI_CON_HANDLE_INVALID) {
             /* no "audio released" came first (link loss): end the audio too,
              * so the mixer stops waiting for caller audio */
@@ -715,6 +891,7 @@ static void exec_cmd(const cmd_t *c)
         if (slc) hfp_hf_release_service_level_connection(acl_handle);
         break;
     case CMD_DISCOVERABLE: gap_discoverable_control(c->flag ? 1 : 0); break;
+    case CMD_FETCH_CONTACTS: contacts_fetch(); break;
     case CMD_SET_NAME:
         /* BTstack keeps the pointer, so the name lives in a static buffer */
         snprintf(cfg_local_name, sizeof cfg_local_name, "%s", c->text);
@@ -761,6 +938,7 @@ static void exec_cmd(const cmd_t *c)
         shutting_down = true;
         btstack_run_loop_remove_timer(&reconnect_timer);
         btstack_run_loop_remove_timer(&silence_timer);
+        btstack_run_loop_remove_timer(&contacts_timer);
         if (hci_get_state() == HCI_STATE_OFF) {
             btstack_run_loop_trigger_exit();
         } else {
@@ -849,6 +1027,7 @@ void bt_cmd_hold_and_accept(void) { post(mk(CMD_HOLD_ACCEPT, NULL, NULL, 0)); }
 void bt_cmd_end_and_accept(void) { post(mk(CMD_END_ACCEPT, NULL, NULL, 0)); }
 void bt_cmd_reject_waiting(void) { post(mk(CMD_REJECT_WAITING, NULL, NULL, 0)); }
 void bt_cmd_query_calls(void) { post(mk(CMD_QUERY_CALLS, NULL, NULL, 0)); }
+void bt_cmd_fetch_contacts(void) { post(mk(CMD_FETCH_CONTACTS, NULL, NULL, 0)); }
 
 /* ------------------------------------------------------------------ */
 /* Start-up                                                            */
@@ -865,6 +1044,8 @@ static void stack_init(void)
     l2cap_init();
     rfcomm_init();
     sdp_init();
+    goep_client_init();
+    pbap_client_init();
 
     uint16_t features = (1 << HFP_HFSF_ESCO_S4) | (1 << HFP_HFSF_CLI_PRESENTATION_CAPABILITY) |
                         (1 << HFP_HFSF_HF_INDICATORS) | (1 << HFP_HFSF_CODEC_NEGOTIATION) |
@@ -891,6 +1072,12 @@ static void stack_init(void)
                                          RFCOMM_CHANNEL, cfg_local_name, features, n_codecs,
                                          codecs);
     sdp_register_service(sdp_record);
+    /* announce a phonebook client: iPhones only offer "Sync Contacts" to
+     * devices that advertise one */
+    memset(pbap_sdp_record, 0, sizeof pbap_sdp_record);
+    pbap_client_create_sdp_record(pbap_sdp_record, sdp_create_service_record_handle(),
+                                  "Phone Recorder contacts");
+    sdp_register_service(pbap_sdp_record);
 
     gap_set_local_name(cfg_local_name);
     gap_discoverable_control(1);

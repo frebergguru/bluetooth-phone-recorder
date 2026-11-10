@@ -873,3 +873,78 @@ msgstr "Utgangen for medhøring sluttet å virke. Velg en annen utgang."
 
 msgid "Name of this input"
 msgstr "Navnet på denne inngangen"
+
+msgid "%d contact loaded from the phone"
+msgid_plural "%d contacts loaded from the phone"
+msgstr[0] "%d kontakt hentet fra telefonen"
+msgstr[1] "%d kontakter hentet fra telefonen"
+
+msgid "The phone did not share its contacts. On Android, allow access to contacts when the phone asks. On iPhone, turn on Sync Contacts under Settings, Bluetooth, (i) next to Phone Recorder."
+msgstr "Telefonen delte ikke kontaktene sine. På Android: tillat tilgang til kontakter når telefonen spør. På iPhone: slå på Synkroniser kontakter under Innstillinger, Bluetooth, (i) ved siden av Phone Recorder."
+
+msgid "The contacts could not be downloaded from the phone."
+msgstr "Kontaktene kunne ikke hentes fra telefonen."
+
+msgid "Download the phone's contacts"
+msgstr "Hent kontaktene fra telefonen"
+
+msgid "Kept only on this computer. Used for the contact list and to show names of callers."
+msgstr "Lagres bare på denne datamaskinen. Brukes til kontaktlisten og til å vise navnet på den som ringer."
+
+msgid "Contacts"
+msgstr "Kontakter"
+
+msgid "Mobile"
+msgstr "Mobil"
+
+msgid "Home"
+msgstr "Hjem"
+
+msgid "Work"
+msgstr "Jobb"
+
+msgid "Connect a phone first"
+msgstr "Koble til en telefon først"
+
+msgid "End the current call first"
+msgstr "Avslutt den pågående samtalen først"
+
+msgid "Call %s, %s %s"
+msgstr "Ring %s, %s %s"
+
+msgid "%d number"
+msgid_plural "%d numbers"
+msgstr[0] "%d nummer"
+msgstr[1] "%d numre"
+
+msgid "%d contact from %s"
+msgid_plural "%d contacts from %s"
+msgstr[0] "%d kontakt fra %s"
+msgstr[1] "%d kontakter fra %s"
+
+msgid "the phone"
+msgstr "telefonen"
+
+msgid "No contacts yet. Connect a phone and choose Refresh. The phone may ask whether to share its contacts."
+msgstr "Ingen kontakter ennå. Koble til en telefon og velg Oppdater. Telefonen kan spørre om den skal dele kontaktene sine."
+
+msgid "Downloading contacts from the phone..."
+msgstr "Henter kontakter fra telefonen ..."
+
+msgid "Download the contacts from the phone again"
+msgstr "Hent kontaktene fra telefonen på nytt"
+
+msgid "Refresh contacts"
+msgstr "Oppdater kontakter"
+
+msgid "Search by name or number"
+msgstr "Søk etter navn eller nummer"
+
+msgid "Search contacts"
+msgstr "Søk i kontakter"
+
+msgid "C_ontacts"
+msgstr "K_ontakter"
+
+msgid "Search the phone's address book and call (Ctrl+K)"
+msgstr "Søk i telefonens adressebok og ring (Ctrl+K)"

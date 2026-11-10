@@ -10,6 +10,7 @@
  *     scripts/make-doc-screenshots.sh
  */
 #include <math.h>
+#include <string.h>
 
 #include "app.h"
 #include <stdlib.h>
@@ -98,6 +99,18 @@ static void fill_demo_state(void)
     APP->audio_on_computer = true;
     snprintf(APP->codec_name, sizeof APP->codec_name, "%s", "mSBC");
     APP->codec_rate = 16000;
+    /* demo address book (fake names and numbers) */
+    static const char *demo_vcf =
+        "BEGIN:VCARD\nVERSION:3.0\nFN:Alex (guest)\nTEL;TYPE=CELL:+47 123 45 678\nEND:VCARD\n"
+        "BEGIN:VCARD\nVERSION:3.0\nFN:Bea Berg\nTEL;TYPE=CELL:+47 401 00 001\n"
+        "TEL;TYPE=WORK:+47 22 00 00 01\nEND:VCARD\n"
+        "BEGIN:VCARD\nVERSION:3.0\nFN:Chris Dahl\nTEL;TYPE=CELL:+47 401 00 002\nEND:VCARD\n"
+        "BEGIN:VCARD\nVERSION:3.0\nFN:Example Studio\nTEL;TYPE=WORK:+47 22 00 00 02\nEND:VCARD\n"
+        "BEGIN:VCARD\nVERSION:3.0\nFN:Kari Nordmann\nTEL;TYPE=HOME:+47 22 00 00 03\nEND:VCARD\n"
+        "BEGIN:VCARD\nVERSION:3.0\nFN:Ola Nordmann\nTEL;TYPE=CELL:+47 401 00 003\nEND:VCARD\n"
+        "BEGIN:VCARD\nVERSION:3.0\nFN:Podcast hotline\nTEL:+47 800 00 000\nEND:VCARD\n";
+    free(APP->contacts);
+    APP->n_contacts = vcard_parse(demo_vcf, strlen(demo_vcf), &APP->contacts);
     window_refresh_paired();
     app_update_phone_ui();
 
@@ -172,6 +185,11 @@ static gboolean next_step(gpointer d)
         break;
     case 11:
         shot("about.png");
+        close_dialog();
+        dialog_contacts();
+        break;
+    case 12:
+        shot("contacts.png");
         close_dialog();
         break;
     default: {

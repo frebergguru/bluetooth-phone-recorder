@@ -44,6 +44,8 @@ typedef enum {
     BT_EV_PAIRED_LIST,      /* text = newline separated addresses */
     BT_EV_ERROR,            /* text */
     BT_EV_CALL_WAITING,     /* a second call while in a call: text = number, text2 = name */
+    BT_EV_CONTACTS,         /* address book: number >= 0 contacts saved to file text,
+                               number < 0 failed (state = reason, see bt_contacts_error_t) */
 } bt_event_type_t;
 
 typedef struct {
@@ -56,6 +58,11 @@ typedef struct {
     char text2[128];
 } bt_event_t;
 
+typedef enum {
+    BT_CONTACTS_REFUSED,     /* the phone did not allow access (or has no phonebook) */
+    BT_CONTACTS_FAILED,      /* transfer error */
+} bt_contacts_error_t;
+
 typedef void (*bt_event_cb)(const bt_event_t *ev, void *ud);
 
 typedef struct {
@@ -67,6 +74,7 @@ typedef struct {
     bool allow_super_wideband;   /* LC3-SWB 32 kHz */
     bool allow_wideband;         /* mSBC 16 kHz */
     bool disable_phone_nrec;     /* ask the phone to skip its echo/noise processing */
+    bool fetch_contacts;         /* download the address book when a phone connects */
     char auto_connect_addr[18];  /* last phone, reconnect automatically */
     phone_link_t *link;
 } bt_config_t;
@@ -99,5 +107,9 @@ void bt_cmd_hold_and_accept(void); /* AT+CHLD=2: hold active, accept waiting */
 void bt_cmd_reject_waiting(void);  /* AT+CHLD=0: decline a waiting call, keep the active one */
 void bt_cmd_end_and_accept(void);  /* AT+CHLD=1 */
 void bt_cmd_query_calls(void);
+void bt_cmd_fetch_contacts(void); /* download the connected phone's address book now */
+
+/* File where a phone's address book is kept (static buffer). */
+const char *bt_contacts_path(const char *addr);
 
 #endif

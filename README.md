@@ -34,8 +34,13 @@ what reaches you.
 
 - Own Bluetooth stack, so no BlueZ pairing or reconnection problems. Pairing
   with numeric comparison, remembers phones, reconnects automatically.
-- Answer, decline, hang up, dial, redial, keypad tones, call waiting, caller
-  ID, phone battery and signal. Move the call audio between phone and computer.
+- Answer, decline, hang up, dial, redial, keypad tones, call waiting (with the
+  waiting caller's ID), caller ID, phone battery and signal. Move the call
+  audio between phone and computer.
+- Address book: downloads the phone's contacts (kept only on this computer),
+  searchable list with call buttons, and caller names for numbers the phone
+  sends without one. Works with Android phones, iPhones and other phones that
+  share their phonebook over Bluetooth.
 - Mixer with any number of inputs (microphones, other apps): gain, pan, mute,
   solo, low cut filter, noise gate, peak meters with numbers.
 - **Mix-minus**: the caller hears all inputs except themselves.

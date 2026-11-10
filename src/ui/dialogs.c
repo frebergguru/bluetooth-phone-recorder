@@ -582,6 +582,11 @@ void dialog_preferences(void)
                                            "hears you more naturally"),
                                          &s->phone_nrec_off));
     adw_preferences_group_add(ADW_PREFERENCES_GROUP(g3),
+                              switch_row(_("Download the phone's contacts"),
+                                         _("Kept only on this computer. Used for the contact list "
+                                           "and to show names of callers."),
+                                         &s->fetch_contacts));
+    adw_preferences_group_add(ADW_PREFERENCES_GROUP(g3),
                               switch_row(_("Secure Connections"),
                                          _("Turn off only if pairing or call audio fails with an "
                                            "older adapter"),
@@ -697,6 +702,7 @@ void dialog_shortcuts(void)
         {N_("Calls"), N_("Answer"), "<Control><Shift>a"},
         {N_("Calls"), N_("Decline or hang up"), "<Control><Shift>h"},
         {N_("Calls"), N_("Move call audio between phone and computer"), "<Control><Shift>t"},
+        {N_("Calls"), N_("Contacts"), "<Control>k"},
         {N_("Mixer"), N_("Input 1 to 9: heard by the caller on or off"), "<Control>1"},
         {N_("Mixer"), N_("Input 1 to 9: mute on or off"), "<Alt>1"},
         {N_("Mixer"), N_("Add an input"), "<Control>i"},
@@ -737,4 +743,200 @@ void dialog_about(void)
           "the program as a whole may only be used and shared for non-commercial purposes. "
           "See NOTICE."));
     adw_dialog_present(about, GTK_WIDGET(APP->window));
+}
+
+/* ------------------------------------------------------------------ */
+/* Contacts (the phone's address book)                                 */
+/* ------------------------------------------------------------------ */
+
+typedef struct {
+    AdwDialog *dialog;
+    GtkWidget *search, *list, *status;
+} contacts_ui_t;
+
+static const char *tel_type_label(tel_type_t t)
+{
+    switch (t) {
+    case TEL_MOBILE: return _("Mobile");
+    case TEL_HOME: return _("Home");
+    case TEL_WORK: return _("Work");
+    case TEL_OTHER:
+    default: return _("Phone");
+    }
+}
+
+static void on_contact_call(GtkButton *b, gpointer ui_ptr)
+{
+    contacts_ui_t *ui = ui_ptr;
+    const char *number = g_object_get_data(G_OBJECT(b), "number");
+    if (!APP->phone_connected) {
+        app_toast(_("Connect a phone first"));
+        return;
+    }
+    if (APP->call_state != CALL_IDLE) {
+        app_toast(_("End the current call first"));
+        return;
+    }
+    bt_cmd_dial(number);
+    adw_dialog_close(ui->dialog);
+}
+
+static GtkWidget *call_button(contacts_ui_t *ui, const contact_t *c, int k)
+{
+    GtkWidget *b = gtk_button_new_from_icon_name("call-start-symbolic");
+    gtk_widget_add_css_class(b, "flat");
+    gtk_widget_set_valign(b, GTK_ALIGN_CENTER);
+    char a11y[300];
+    snprintf(a11y, sizeof a11y, _("Call %s, %s %s"), c->name, tel_type_label(c->numbers[k].type),
+             c->numbers[k].number);
+    gtk_widget_set_tooltip_text(b, a11y);
+    gtk_accessible_update_property(GTK_ACCESSIBLE(b), GTK_ACCESSIBLE_PROPERTY_LABEL, a11y, -1);
+    g_object_set_data_full(G_OBJECT(b), "number", g_strdup(c->numbers[k].number), g_free);
+    g_signal_connect(b, "clicked", G_CALLBACK(on_contact_call), ui);
+    return b;
+}
+
+static gboolean contact_filter(GtkListBoxRow *row, gpointer ui_ptr)
+{
+    contacts_ui_t *ui = ui_ptr;
+    const char *q = gtk_editable_get_text(GTK_EDITABLE(ui->search));
+    if (!q || !*q) return TRUE;
+    const char *hay = g_object_get_data(G_OBJECT(row), "search");
+    char *fold = g_utf8_casefold(q, -1);
+    gboolean hit = hay && strstr(hay, fold) != NULL;
+    if (!hit && hay) {
+        char digits[64];
+        phone_normalize(q, digits, sizeof digits);
+        if (strlen(digits) >= 2) hit = strstr(hay, digits) != NULL;
+    }
+    g_free(fold);
+    return hit;
+}
+
+static void contacts_fill(contacts_ui_t *ui)
+{
+    GtkWidget *child;
+    while ((child = gtk_widget_get_first_child(ui->list))) gtk_list_box_remove(GTK_LIST_BOX(ui->list), child);
+    for (int i = 0; i < APP->n_contacts; i++) {
+        const contact_t *c = &APP->contacts[i];
+        /* search text: folded name plus the digits of every number */
+        GString *s = g_string_new(NULL);
+        char *fold = g_utf8_casefold(c->name, -1);
+        g_string_append(s, fold);
+        g_free(fold);
+        for (int k = 0; k < c->n_numbers; k++) {
+            char d[64];
+            phone_normalize(c->numbers[k].number, d, sizeof d);
+            g_string_append_printf(s, " %s", d);
+        }
+        GtkWidget *row;
+        if (c->n_numbers == 1) {
+            row = adw_action_row_new();
+            adw_preferences_row_set_use_markup(ADW_PREFERENCES_ROW(row), FALSE);
+            adw_preferences_row_set_title(ADW_PREFERENCES_ROW(row), c->name);
+            char sub[96];
+            snprintf(sub, sizeof sub, "%s: %s", tel_type_label(c->numbers[0].type), c->numbers[0].number);
+            adw_action_row_set_subtitle(ADW_ACTION_ROW(row), sub);
+            adw_action_row_add_suffix(ADW_ACTION_ROW(row), call_button(ui, c, 0));
+        } else {
+            row = adw_expander_row_new();
+            adw_preferences_row_set_use_markup(ADW_PREFERENCES_ROW(row), FALSE);
+            adw_preferences_row_set_title(ADW_PREFERENCES_ROW(row), c->name);
+            char sub[64];
+            snprintf(sub, sizeof sub, g_dngettext(NULL, "%d number", "%d numbers", (gulong)c->n_numbers),
+                     c->n_numbers);
+            adw_expander_row_set_subtitle(ADW_EXPANDER_ROW(row), sub);
+            for (int k = 0; k < c->n_numbers; k++) {
+                GtkWidget *nr = adw_action_row_new();
+                adw_preferences_row_set_use_markup(ADW_PREFERENCES_ROW(nr), FALSE);
+                adw_preferences_row_set_title(ADW_PREFERENCES_ROW(nr), c->numbers[k].number);
+                adw_action_row_set_subtitle(ADW_ACTION_ROW(nr), tel_type_label(c->numbers[k].type));
+                adw_action_row_add_suffix(ADW_ACTION_ROW(nr), call_button(ui, c, k));
+                adw_expander_row_add_row(ADW_EXPANDER_ROW(row), nr);
+            }
+        }
+        g_object_set_data_full(G_OBJECT(row), "search", g_string_free(s, FALSE), g_free);
+        gtk_list_box_append(GTK_LIST_BOX(ui->list), row);
+    }
+    char status[300];
+    if (APP->n_contacts > 0)
+        snprintf(status, sizeof status,
+                 g_dngettext(NULL, "%d contact from %s", "%d contacts from %s", (gulong)APP->n_contacts),
+                 APP->n_contacts, APP->phone_name[0] ? APP->phone_name : _("the phone"));
+    else
+        snprintf(status, sizeof status, "%s",
+                 _("No contacts yet. Connect a phone and choose Refresh. The phone may ask "
+                   "whether to share its contacts."));
+    gtk_label_set_text(GTK_LABEL(ui->status), status);
+    gtk_widget_set_visible(ui->list, APP->n_contacts > 0);
+}
+
+static void on_contacts_search(GtkSearchEntry *e, gpointer ui_ptr)
+{
+    (void)e;
+    contacts_ui_t *ui = ui_ptr;
+    gtk_list_box_invalidate_filter(GTK_LIST_BOX(ui->list));
+}
+
+static void on_contacts_refresh(GtkButton *b, gpointer ui_ptr)
+{
+    (void)b;
+    (void)ui_ptr;
+    if (!APP->phone_connected) {
+        app_toast(_("Connect a phone first"));
+        return;
+    }
+    bt_cmd_fetch_contacts();
+    app_toast(_("Downloading contacts from the phone..."));
+}
+
+void dialog_contacts(void)
+{
+    contacts_ui_t *ui = g_new0(contacts_ui_t, 1);
+    ui->dialog = adw_dialog_new();
+    adw_dialog_set_title(ui->dialog, _("Contacts"));
+    adw_dialog_set_content_width(ui->dialog, 480);
+    adw_dialog_set_content_height(ui->dialog, 640);
+    g_object_set_data_full(G_OBJECT(ui->dialog), "ui", ui, g_free);
+
+    GtkWidget *tv = adw_toolbar_view_new();
+    GtkWidget *hb = adw_header_bar_new();
+    GtkWidget *refresh = gtk_button_new_from_icon_name("view-refresh-symbolic");
+    gtk_widget_set_tooltip_text(refresh, _("Download the contacts from the phone again"));
+    gtk_accessible_update_property(GTK_ACCESSIBLE(refresh), GTK_ACCESSIBLE_PROPERTY_LABEL,
+                                   _("Refresh contacts"), -1);
+    g_signal_connect(refresh, "clicked", G_CALLBACK(on_contacts_refresh), ui);
+    adw_header_bar_pack_start(ADW_HEADER_BAR(hb), refresh);
+    adw_toolbar_view_add_top_bar(ADW_TOOLBAR_VIEW(tv), hb);
+
+    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+    gtk_widget_set_margin_start(box, 12);
+    gtk_widget_set_margin_end(box, 12);
+    gtk_widget_set_margin_top(box, 6);
+    gtk_widget_set_margin_bottom(box, 12);
+    ui->search = gtk_search_entry_new();
+    gtk_search_entry_set_placeholder_text(GTK_SEARCH_ENTRY(ui->search), _("Search by name or number"));
+    gtk_accessible_update_property(GTK_ACCESSIBLE(ui->search), GTK_ACCESSIBLE_PROPERTY_LABEL,
+                                   _("Search contacts"), -1);
+    g_signal_connect(ui->search, "search-changed", G_CALLBACK(on_contacts_search), ui);
+    ui->status = gtk_label_new("");
+    gtk_label_set_wrap(GTK_LABEL(ui->status), TRUE);
+    gtk_label_set_xalign(GTK_LABEL(ui->status), 0);
+    gtk_widget_add_css_class(ui->status, "dim-label");
+    ui->list = gtk_list_box_new();
+    gtk_list_box_set_selection_mode(GTK_LIST_BOX(ui->list), GTK_SELECTION_NONE);
+    gtk_widget_add_css_class(ui->list, "boxed-list");
+    gtk_list_box_set_filter_func(GTK_LIST_BOX(ui->list), contact_filter, ui, NULL);
+    GtkWidget *scroll = gtk_scrolled_window_new();
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+    gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scroll), ui->list);
+    gtk_widget_set_vexpand(scroll, TRUE);
+    gtk_box_append(GTK_BOX(box), ui->search);
+    gtk_box_append(GTK_BOX(box), ui->status);
+    gtk_box_append(GTK_BOX(box), scroll);
+    adw_toolbar_view_set_content(ADW_TOOLBAR_VIEW(tv), box);
+    adw_dialog_set_child(ui->dialog, tv);
+    adw_dialog_set_focus(ui->dialog, ui->search);
+    contacts_fill(ui);
+    adw_dialog_present(ui->dialog, GTK_WIDGET(APP->window));
 }

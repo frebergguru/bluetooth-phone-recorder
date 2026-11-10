@@ -39,7 +39,7 @@ btstack_inc = include_directories(
   bt / 'chipset/realtek', bt / 'chipset/intel', bt / 'chipset/bcm',
   bt / '3rd-party/bluedroid/decoder/include', bt / '3rd-party/bluedroid/encoder/include',
   bt / '3rd-party/lc3-google/include', bt / '3rd-party/tinydir',
-  bt / '3rd-party/micro-ecc', bt / '3rd-party/rijndael', bt / '3rd-party/yxml',
+  bt / '3rd-party/micro-ecc', bt / '3rd-party/rijndael', bt / '3rd-party/yxml', bt / '3rd-party/md5',
 )
 
 btstack_src = files(
@@ -61,6 +61,10 @@ btstack_src = files(
   bt / 'src/classic/btstack_sbc_decoder_bluedroid.c',
   bt / 'src/classic/btstack_sbc_encoder_bluedroid.c',
   bt / 'src/classic/hfp_msbc.c', bt / 'src/classic/hfp_codec.c',
+  bt / 'src/classic/goep_client.c', bt / 'src/classic/obex_iterator.c',
+  bt / 'src/classic/obex_parser.c', bt / 'src/classic/obex_message_builder.c',
+  bt / 'src/classic/obex_srm_client.c', bt / 'src/classic/pbap_client.c',
+  bt / '3rd-party/md5/md5.c', bt / '3rd-party/yxml/yxml.c',
   bt / 'platform/posix/btstack_run_loop_posix.c', bt / 'platform/posix/btstack_tlv_posix.c',
   bt / 'platform/posix/hci_dump_posix_fs.c', bt / 'platform/posix/btstack_uart_posix.c',
   bt / 'platform/libusb/hci_transport_h2_libusb.c',
@@ -112,7 +116,7 @@ core_args = [
 ]
 
 core_src = files(
-  'src/core/ringbuf.c', 'src/core/log.c', 'src/core/paths.c',
+  'src/core/ringbuf.c', 'src/core/log.c', 'src/core/paths.c', 'src/core/vcard.c',
   'src/audio/adaptive.c', 'src/audio/dsp.c', 'src/audio/mixer.c', 'src/audio/phone_link.c',
   'src/audio/engine.c',
   'src/rec/recorder.c',

@@ -13,6 +13,7 @@ Contents:
 3. [Pair your phone](#3-pair-your-phone)
 4. [The main window](#4-the-main-window)
 5. [Calls](#5-calls)
+   - [Contacts](#contacts)
 6. [The mixer](#6-the-mixer)
 7. [Recording](#7-recording)
 8. [Preferences](#8-preferences)
@@ -45,6 +46,14 @@ Using OBS? See the separate [OBS guide](obs-guide.md).
 
   This lets your user drive USB Bluetooth adapters without root rights.
   Building and installing the app is described in [BUILD.md](../BUILD.md).
+
+### Which phones work
+
+Any phone that works with a car kit or a Bluetooth headset: Android phones,
+iPhones and most other mobile phones (Bluetooth Hands-Free Profile). The
+contact list needs the phone to share its address book (Phone Book Access
+Profile), which Android phones and iPhones do after you allow it; some
+older phones cannot, and then the app simply works without contacts.
 
 ### About sound quality
 
@@ -146,12 +155,41 @@ connect again.
   phone** hands the audio back to the handset (the call continues);
   **Move call audio to the computer** brings it back (Ctrl+Shift+T). The app
   brings the audio to the computer by itself when a call starts.
-- **Call waiting:** if a second call comes in during a call, **Answer** puts
-  the current call on hold and takes the new one; **Decline** rejects only the
-  new call.
+- **Call waiting:** if a second call comes in during a call, the card shows
+  "Call waiting" with the new caller's name or number and, below it, the call
+  you are in. **Answer** puts the current call on hold and takes the new one;
+  **Decline** rejects only the new call.
 
 Closing the app during a call does not end the call; it continues on the
 phone.
+
+### Contacts
+
+When a phone connects, the app downloads its address book, so you can call
+people by name and see who is calling even when the phone only sends a
+number. The contacts are kept only on this computer, in a file only your
+user can read, and are deleted when you **Forget** the phone.
+
+![The Contacts window: a search field, the number of contacts, and a list of names with their numbers and a call button for each](images/contacts.png)
+
+- Open it with **Contacts** under **Make a call**, or Ctrl+K.
+- Type in the search field to find a name or a part of a number.
+- Click the call button next to a number to call it. Contacts with several
+  numbers open to show them all.
+- The refresh button (top left) downloads the address book again.
+
+The phone must allow this the first time:
+
+- **Android:** the phone asks whether to share contacts (and call history)
+  with "Phone Recorder": choose **Allow**. If you missed the question, open
+  the phone's Bluetooth settings, tap the gear next to Phone Recorder and turn
+  on **Contacts** (sometimes called **Contact sharing**).
+- **iPhone:** open **Settings, Bluetooth**, tap **(i)** next to Phone
+  Recorder and turn on **Sync Contacts**. Then choose refresh in the Contacts
+  window.
+
+To stop downloading contacts, turn off **Download the phone's contacts** in
+Preferences, Bluetooth.
 
 ---
 
@@ -249,6 +287,7 @@ Open with **Menu (☰), Preferences** or Ctrl+comma.
 - **HD voice** and **Super wideband:** allow the better codecs. Leave on.
 - **Ask the phone to skip its own noise reduction:** your microphones are
   already clean, so the caller hears you more naturally.
+- **Download the phone's contacts:** see [Contacts](#contacts).
 - **Secure Connections:** turn off only if pairing or call audio fails with an
   older adapter.
 - **Extra firmware folder:** for adapters whose firmware is not in the system.
@@ -286,6 +325,7 @@ Press F1 (or Ctrl+?) to see them in the app.
 | Ctrl+Shift+A | Answer |
 | Ctrl+Shift+H | Decline or hang up |
 | Ctrl+Shift+T | Move call audio between phone and computer |
+| Ctrl+K | Contacts |
 | Ctrl+1 to Ctrl+9 | Input 1 to 9: heard by the caller on or off |
 | Alt+1 to Alt+9 | Input 1 to 9: mute on or off |
 | Ctrl+I | Add an input |
@@ -322,6 +362,8 @@ Esc.
 | A call connects but no audio arrives | The app says so. In kernel driver mode, try Direct USB. Otherwise try another adapter. |
 | Only narrowband (8 kHz) | The adapter or the phone has no wideband support. Try another adapter. |
 | The caller hears an echo | Use headphones, or turn on **Echo cancelling**. |
+| No contacts | Android: allow contact sharing for Phone Recorder in the phone's Bluetooth settings. iPhone: Settings, Bluetooth, (i), turn on **Sync Contacts**. Then choose refresh in the Contacts window. |
+| Callers show only a number | The number is not in the phone's address book, or contacts are not downloaded (see above). |
 | Clicks or dropouts | The status line counts them. Close heavy programs; check the disk is not full. |
 | Bluetooth is still gone from the system after the app closed (rare) | Run `bt-phone-recorder --release-adapters`. |
 
@@ -340,7 +382,7 @@ For a detailed problem report:
 |------|----------|
 | `~/Music/Podcast recordings/` | your recordings (changeable) |
 | `~/.config/bt-phone-recorder/` | settings and remembered phone names |
-| `~/.local/share/bt-phone-recorder/` | pairing keys |
+| `~/.local/share/bt-phone-recorder/` | pairing keys and the downloaded address book (readable only by you) |
 | `~/.local/state/bt-phone-recorder/` | log file and Bluetooth traces |
 | `~/.cache/bt-phone-recorder/` | unpacked Bluetooth firmware (recreated when needed) |
 

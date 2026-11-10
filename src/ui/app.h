@@ -13,6 +13,7 @@
 #include "bt/adapters.h"
 #include "bt/bt_engine.h"
 #include "obs/obs_ws.h"
+#include "core/vcard.h"
 #include "settings.h"
 
 typedef enum {
@@ -57,6 +58,8 @@ typedef struct {
     char caller_name[128];
     char waiting_number[64]; /* second caller while a call is active */
     char waiting_name[128];
+    contact_t *contacts; /* address book of the current phone, sorted by name */
+    int n_contacts;
     bool audio_on_computer;
     char codec_name[16];
     int codec_rate;
@@ -78,7 +81,7 @@ typedef struct {
     GtkWidget *paired_rows[16];
     GtkWidget *call_status, *caller_label, *call_timer, *codec_label, *phone_info;
     GtkWidget *answer_btn, *reject_btn, *hangup_btn, *audio_btn;
-    GtkWidget *dial_entry, *dial_btn, *redial_btn, *keypad;
+    GtkWidget *dial_entry, *dial_btn, *redial_btn, *keypad, *contacts_btn;
     GtkWidget *disk_label, *health_label, *session_label;
     GtkWidget *monitor_switch, *monitor_dropdown, *monitor_gain, *call_gain, *echo_switch;
     GtkWidget *meter_full_l, *meter_full_r, *meter_call, *meter_monitor;
@@ -101,6 +104,10 @@ void app_apply_text_scale(void);
 void app_update_call_ui(void);
 void app_update_phone_ui(void);
 void app_save_mixer_settings(void);
+/* Load the saved address book of a phone (addr NULL = clear). */
+void app_load_contacts(const char *addr);
+/* Contact name for a number, or NULL. */
+const char *app_contact_name(const char *number);
 gboolean app_save_screenshot(const char *path);
 
 /* docshots.c: BPR_DOC_SHOTS=<dir> renders the documentation pictures */
@@ -133,5 +140,6 @@ void dialog_pin(const char *addr);
 void dialog_about(void);
 void dialog_shortcuts(void);
 void dialog_adapter_report(void);
+void dialog_contacts(void);
 
 #endif

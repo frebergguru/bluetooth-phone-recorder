@@ -159,6 +159,34 @@ gboolean app_set_bluetooth_name(const char *name)
     return TRUE;
 }
 
+void app_load_contacts(const char *addr)
+{
+    free(APP->contacts);
+    APP->contacts = NULL;
+    APP->n_contacts = 0;
+    if (!addr || !*addr) return;
+    char *data = NULL;
+    gsize len = 0;
+    if (g_file_get_contents(bt_contacts_path(addr), &data, &len, NULL)) {
+        APP->n_contacts = vcard_parse(data, len, &APP->contacts);
+        g_free(data);
+    }
+}
+
+const char *app_contact_name(const char *number)
+{
+    const contact_t *c = contacts_lookup(APP->contacts, APP->n_contacts, number);
+    return c ? c->name : NULL;
+}
+
+/* Fill in a caller's name from the address book when the phone sent none. */
+static void name_from_contacts(const char *number, char *name, size_t len)
+{
+    if (name[0] && strcmp(name, number) != 0) return;
+    const char *n = app_contact_name(number);
+    if (n) snprintf(name, len, "%s", n);
+}
+
 void app_request_restart(void)
 {
     APP->restart_requested = true;
@@ -311,6 +339,7 @@ static void handle_bt_event(const bt_event_t *ev)
     case BT_EV_PHONE_CONNECTED: {
         APP->phone_connected = true;
         snprintf(APP->phone_addr, sizeof APP->phone_addr, "%s", ev->addr);
+        app_load_contacts(ev->addr); /* the saved copy, until a fresh one arrives */
         snprintf(APP->settings.last_phone, sizeof APP->settings.last_phone, "%s", ev->addr);
         settings_save(&APP->settings);
         char *name = settings_phone_name(ev->addr);
@@ -358,13 +387,34 @@ static void handle_bt_event(const bt_event_t *ev)
     case BT_EV_CALL_WAITING: {
         snprintf(APP->waiting_number, sizeof APP->waiting_number, "%s", ev->text);
         snprintf(APP->waiting_name, sizeof APP->waiting_name, "%s", ev->text2);
+        name_from_contacts(APP->waiting_number, APP->waiting_name, sizeof APP->waiting_name);
         char msg[256];
         snprintf(msg, sizeof msg, _("Call waiting from %s"),
-                 ev->text2[0] ? ev->text2 : ev->text[0] ? ev->text : _("unknown number"));
+                 APP->waiting_name[0] ? APP->waiting_name
+                 : APP->waiting_number[0] ? APP->waiting_number : _("unknown number"));
         app_announce(msg, GTK_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_HIGH);
         app_update_call_ui();
         break;
     }
+    case BT_EV_CONTACTS:
+        if (ev->number >= 0) {
+            if (strcmp(ev->addr, APP->phone_addr) == 0) app_load_contacts(ev->addr);
+            name_from_contacts(APP->caller_number, APP->caller_name, sizeof APP->caller_name);
+            char msg[128];
+            snprintf(msg, sizeof msg,
+                     g_dngettext(NULL, "%d contact loaded from the phone",
+                                 "%d contacts loaded from the phone", (gulong)ev->number),
+                     ev->number);
+            app_toast(msg);
+        } else if (ev->state == BT_CONTACTS_REFUSED) {
+            app_toast(_("The phone did not share its contacts. On Android, allow access to "
+                        "contacts when the phone asks. On iPhone, turn on Sync Contacts under "
+                        "Settings, Bluetooth, (i) next to Phone Recorder."));
+        } else {
+            app_toast(_("The contacts could not be downloaded from the phone."));
+        }
+        app_update_call_ui();
+        break;
     case BT_EV_CALLER_ID:
         /* during a call, a new caller ID belongs to a waiting call */
         if (APP->ind_call == 1 && APP->ind_callsetup == 1 && APP->caller_number[0] &&
@@ -376,11 +426,14 @@ static void handle_bt_event(const bt_event_t *ev)
         }
         snprintf(APP->caller_number, sizeof APP->caller_number, "%s", ev->text);
         snprintf(APP->caller_name, sizeof APP->caller_name, "%s", ev->text2);
+        name_from_contacts(APP->caller_number, APP->caller_name, sizeof APP->caller_name);
         app_update_call_ui();
         break;
     case BT_EV_CALL_STATUS:
-        if (ev->text[0] && !APP->caller_number[0])
+        if (ev->text[0] && !APP->caller_number[0]) {
             snprintf(APP->caller_number, sizeof APP->caller_number, "%s", ev->text);
+            name_from_contacts(APP->caller_number, APP->caller_name, sizeof APP->caller_name);
+        }
         app_update_call_ui();
         break;
     case BT_EV_AUDIO_CONNECTED:
@@ -447,6 +500,7 @@ static void start_bluetooth(void)
     cfg.allow_wideband = s->wideband;
     cfg.allow_super_wideband = s->super_wideband;
     cfg.disable_phone_nrec = s->phone_nrec_off;
+    cfg.fetch_contacts = s->fetch_contacts;
     snprintf(cfg.auto_connect_addr, sizeof cfg.auto_connect_addr, "%s", s->last_phone);
     cfg.link = engine_phone_link(APP->engine);
     char trace[1024] = "";
@@ -656,6 +710,8 @@ static void act_restart(GSimpleAction *a, GVariant *p, gpointer d)
     app_request_restart();
 }
 
+static void act_contacts(GSimpleAction *a, GVariant *p, gpointer d) { (void)a; (void)p; (void)d; dialog_contacts(); }
+
 static void act_open_session(GSimpleAction *a, GVariant *p, gpointer d)
 {
     (void)a; (void)p; (void)d;
@@ -688,6 +744,7 @@ static const GActionEntry app_actions[] = {
     {"mute", act_mute, "i", NULL, NULL, {0}},
     {"open-session", act_open_session, NULL, NULL, NULL, {0}},
     {"restart", act_restart, NULL, NULL, NULL, {0}},
+    {"contacts", act_contacts, NULL, NULL, NULL, {0}},
 };
 
 static void setup_accels(GtkApplication *app)
@@ -702,6 +759,7 @@ static void setup_accels(GtkApplication *app)
         {"app.hangup", {"<Control><Shift>h", NULL}},
         {"app.audio-switch", {"<Control><Shift>t", NULL}},
         {"app.add-input", {"<Control>i", NULL}},
+        {"app.contacts", {"<Control>k", NULL}},
         {"app.preferences", {"<Control>comma", NULL}},
         {"app.shortcuts", {"<Control>question", "F1", NULL}},
         {"app.quit", {"<Control>q", NULL}},
@@ -942,6 +1000,7 @@ static void on_shutdown(GApplication *gapp, gpointer d)
     }
     obs_ws_free(APP->obs);
     APP->obs = NULL;
+    app_load_contacts(NULL); /* frees the list */
     for (int c = 0; c < MIXER_MAX_CHANNELS; c++) {
         strip_free(APP->strips[c]);
         APP->strips[c] = NULL;

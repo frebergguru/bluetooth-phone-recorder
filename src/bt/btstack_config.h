@@ -23,6 +23,8 @@
 #define ENABLE_PRINTF_HEXDUMP
 #define ENABLE_SDP_DES_DUMP
 #define ENABLE_L2CAP_ENHANCED_RETRANSMISSION_MODE
+/* Phonebook access (PBAP) over OBEX; newer phones use OBEX over L2CAP */
+#define ENABLE_GOEP_L2CAP
 /* H5 (three-wire UART) needs SLIP framing */
 #define ENABLE_H5
 
