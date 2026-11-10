@@ -2,7 +2,7 @@ test_env = environment()
 test_env.set('XDG_CACHE_HOME', meson.current_build_dir() / 'xdg-cache')
 test_env.set('XDG_STATE_HOME', meson.current_build_dir() / 'xdg-state')
 
-foreach t : ['ringbuf', 'mixer', 'adaptive', 'recorder', 'firmware']
+foreach t : ['ringbuf', 'mixer', 'adaptive', 'recorder', 'firmware', 'rt_alloc']
   exe = executable('test_' + t, 'test_' + t + '.c',
     dependencies : [core_dep],
     c_args : ['-Wno-unused-function'],

@@ -229,6 +229,8 @@ strip_t *strip_new(int channel)
         gtk_widget_set_tooltip_text(s->name, _("Click to rename. The name is used for the "
                                                 "recording file and the OBS source."));
         g_signal_connect(s->name, "notify::editing", G_CALLBACK(on_name_changed), s);
+        gtk_accessible_update_property(GTK_ACCESSIBLE(s->name), GTK_ACCESSIBLE_PROPERTY_LABEL,
+                                       _("Name of this input"), -1);
     } else {
         s->name = gtk_label_new(_("Caller"));
         gtk_widget_set_tooltip_text(s->name, _("The voice of the person on the phone"));
@@ -471,7 +473,8 @@ static void on_monitor_switch(GObject *sw, GParamSpec *ps, gpointer d)
     (void)d;
     gboolean on = gtk_switch_get_active(GTK_SWITCH(sw));
     APP->settings.monitor_enabled = on;
-    engine_set_monitor(APP->engine, on, APP->settings.monitor_target);
+    if (engine_set_monitor(APP->engine, on, APP->settings.monitor_target) != 0)
+        app_toast(_("The monitor output could not be opened. Choose another output."));
     settings_save(&APP->settings);
 }
 
@@ -491,7 +494,8 @@ static void on_monitor_device(GtkDropDown *dd, GParamSpec *ps, gpointer d)
         snprintf(APP->settings.monitor_target, sizeof APP->settings.monitor_target, "%s",
                  names[sel]);
     if (APP->settings.monitor_enabled)
-        engine_set_monitor(APP->engine, true, APP->settings.monitor_target);
+        if (engine_set_monitor(APP->engine, true, APP->settings.monitor_target) != 0)
+            app_toast(_("The monitor output could not be opened. Choose another output."));
     settings_save(&APP->settings);
 }
 

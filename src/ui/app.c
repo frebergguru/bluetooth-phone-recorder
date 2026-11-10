@@ -94,6 +94,7 @@ void app_record_start(void)
         return;
     }
     APP->recording = true;
+    APP->marker_count = 0;
     APP->rec_started_us = g_get_monotonic_time();
     if (s->obs_enabled && s->obs_sync_record) obs_ws_start_record(APP->obs);
     app_announce(_("Recording started"), GTK_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_MEDIUM);
@@ -125,10 +126,9 @@ void app_add_marker(void)
         app_toast(_("Markers can only be added while recording"));
         return;
     }
-    static int n = 0;
     char label[64];
     gint64 secs = (g_get_monotonic_time() - APP->rec_started_us) / G_USEC_PER_SEC;
-    snprintf(label, sizeof label, _("Marker %d"), ++n);
+    snprintf(label, sizeof label, _("Marker %d"), ++APP->marker_count);
     recorder_add_marker(engine_recorder(APP->engine), label);
     if (APP->settings.obs_enabled && APP->settings.obs_chapters) obs_ws_chapter(APP->obs, label);
     char msg[128];
@@ -226,12 +226,24 @@ static void set_call_state(call_state_t st)
         g_application_withdraw_notification(G_APPLICATION(APP->gapp), "call");
         if (old == CALL_ACTIVE) app_announce(_("Call ended"), GTK_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_MEDIUM);
         APP->caller_number[0] = APP->caller_name[0] = 0;
+        APP->waiting_number[0] = APP->waiting_name[0] = 0;
         if (APP->auto_recording && APP->settings.auto_stop) app_record_stop();
     }
 }
 
 static void recompute_call_state(void)
 {
+    /* A waiting call stopped ringing: if the phone now holds a call, the
+     * waiting one was answered, so it is the caller on the line now. */
+    static int last_callsetup;
+    if (last_callsetup == 1 && APP->ind_callsetup == 0 && APP->waiting_number[0]) {
+        if (APP->ind_call == 1 && APP->ind_callheld) {
+            snprintf(APP->caller_number, sizeof APP->caller_number, "%s", APP->waiting_number);
+            snprintf(APP->caller_name, sizeof APP->caller_name, "%s", APP->waiting_name);
+        }
+        APP->waiting_number[0] = APP->waiting_name[0] = 0;
+    }
+    last_callsetup = APP->ind_callsetup;
     /* The active call ended (a waiting one may still ring). */
     if (APP->ind_call != 1) APP->call_timer_running = false;
     if (APP->ind_callsetup == 1)
@@ -343,7 +355,25 @@ static void handle_bt_event(const bt_event_t *ev)
         if (APP->call_state == CALL_IDLE) set_call_state(CALL_INCOMING);
         app_update_call_ui();
         break;
+    case BT_EV_CALL_WAITING: {
+        snprintf(APP->waiting_number, sizeof APP->waiting_number, "%s", ev->text);
+        snprintf(APP->waiting_name, sizeof APP->waiting_name, "%s", ev->text2);
+        char msg[256];
+        snprintf(msg, sizeof msg, _("Call waiting from %s"),
+                 ev->text2[0] ? ev->text2 : ev->text[0] ? ev->text : _("unknown number"));
+        app_announce(msg, GTK_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_HIGH);
+        app_update_call_ui();
+        break;
+    }
     case BT_EV_CALLER_ID:
+        /* during a call, a new caller ID belongs to a waiting call */
+        if (APP->ind_call == 1 && APP->ind_callsetup == 1 && APP->caller_number[0] &&
+            strcmp(ev->text, APP->caller_number) != 0) {
+            snprintf(APP->waiting_number, sizeof APP->waiting_number, "%s", ev->text);
+            snprintf(APP->waiting_name, sizeof APP->waiting_name, "%s", ev->text2);
+            app_update_call_ui();
+            break;
+        }
         snprintf(APP->caller_number, sizeof APP->caller_number, "%s", ev->text);
         snprintf(APP->caller_name, sizeof APP->caller_name, "%s", ev->text2);
         app_update_call_ui();
@@ -481,8 +511,19 @@ static gboolean slow_tick(gpointer data)
     }
 
     /* disk space and estimated recording time */
-    paths_mkdirs(APP->settings.record_dir);
-    int64_t free_b = recorder_free_bytes(APP->settings.record_dir);
+    /* measure the folder, or its nearest existing parent (the folder itself
+     * is only created when a recording starts) */
+    char probe[1024];
+    snprintf(probe, sizeof probe, "%s", APP->settings.record_dir);
+    while (probe[0] && !g_file_test(probe, G_FILE_TEST_IS_DIR)) {
+        char *slash = strrchr(probe, '/');
+        if (!slash || slash == probe) {
+            snprintf(probe, sizeof probe, "/");
+            break;
+        }
+        *slash = 0;
+    }
+    int64_t free_b = recorder_free_bytes(probe);
     int tracks = 3;
     for (int c = 1; c < MIXER_MAX_CHANNELS; c++)
         if (APP->strips[c]) tracks++;
@@ -504,6 +545,9 @@ static gboolean slow_tick(gpointer data)
             }
         }
     }
+
+    if (engine_monitor_failed(APP->engine))
+        app_toast(_("The monitor output stopped working. Choose another output."));
 
     engine_stats_t st;
     engine_get_stats(APP->engine, &st);
@@ -719,7 +763,8 @@ static void apply_audio_settings(void)
     atomic_store(&m->call_gain_db, (float)s->call_gain_db);
     atomic_store(&m->limit_full, s->limit_full);
     engine_set_echo_cancel(APP->engine, s->echo_cancel);
-    if (s->monitor_enabled) engine_set_monitor(APP->engine, true, s->monitor_target);
+    if (s->monitor_enabled && engine_set_monitor(APP->engine, true, s->monitor_target) != 0)
+        app_toast(_("The monitor output could not be opened. Choose another output."));
 }
 
 /* Debug aid for headless checks: BPR_SCREENSHOT=/path/file.png renders the
@@ -887,6 +932,14 @@ static void on_shutdown(GApplication *gapp, gpointer d)
         app_save_mixer_settings();
     }
     bt_engine_stop(); /* powers the controller off, gives the adapter back */
+    /* app_record_stop() above queued "StopRecord" for OBS: give the websocket
+     * up to half a second to send it before the connection is closed */
+    if (obs_ws_is_connected(APP->obs)) {
+        gint64 until = g_get_monotonic_time() + 500 * 1000;
+        while (g_get_monotonic_time() < until) {
+            if (!g_main_context_iteration(NULL, FALSE)) g_usleep(10 * 1000);
+        }
+    }
     obs_ws_free(APP->obs);
     APP->obs = NULL;
     for (int c = 0; c < MIXER_MAX_CHANNELS; c++) {

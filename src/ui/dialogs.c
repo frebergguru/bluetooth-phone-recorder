@@ -81,6 +81,7 @@ typedef struct {
     GtkWidget *uart_check, *uart_path, *uart_baud, *uart_h5, *uart_flow;
     GtkWidget *list_group;
     GtkWidget *rows[BT_MAX_ADAPTERS];
+    int n_rows; /* rows in list_group, may be a placeholder when no adapter */
 } chooser_t;
 
 static void chooser_free(gpointer p) { g_free(p); }
@@ -164,9 +165,10 @@ static void on_use_clicked(GtkButton *b, chooser_t *c)
 
 static void chooser_fill(chooser_t *c)
 {
-    for (int i = 0; i < c->n; i++)
+    for (int i = 0; i < c->n_rows; i++)
         if (c->rows[i]) adw_preferences_group_remove(ADW_PREFERENCES_GROUP(c->list_group), c->rows[i]);
     memset(c->rows, 0, sizeof c->rows);
+    memset(c->checks, 0, sizeof c->checks);
     c->n = bt_adapters_scan(c->adapters, BT_MAX_ADAPTERS);
     GtkWidget *first = NULL;
     for (int i = 0; i < c->n; i++) {
@@ -224,8 +226,9 @@ static void chooser_fill(chooser_t *c)
                                     _("Plug in a USB Bluetooth dongle and choose Refresh."));
         adw_preferences_group_add(ADW_PREFERENCES_GROUP(c->list_group), row);
         c->rows[0] = row;
-        c->n = 1; /* so the row is removed on refresh */
-        c->checks[0] = gtk_check_button_new();
+        c->n_rows = 1; /* the placeholder is removed on refresh */
+    } else {
+        c->n_rows = c->n;
     }
 }
 

@@ -71,10 +71,10 @@ static inline void ramp_step(float *g, float target, float k)
 void mixer_process(mixer_t *m, mixer_io_t *io, size_t n)
 {
     if (n > MIXER_MAX_BLOCK) n = MIXER_MAX_BLOCK;
-    float tmp[MIXER_MAX_BLOCK];
-    float full_l[MIXER_MAX_BLOCK], full_r[MIXER_MAX_BLOCK];
-    float call[MIXER_MAX_BLOCK];
-    float solo_l[MIXER_MAX_BLOCK], solo_r[MIXER_MAX_BLOCK];
+    float *tmp = m->s_tmp;
+    float *full_l = m->s_full_l, *full_r = m->s_full_r;
+    float *call = m->s_call;
+    float *solo_l = m->s_solo_l, *solo_r = m->s_solo_r;
     memset(full_l, 0, n * sizeof(float));
     memset(full_r, 0, n * sizeof(float));
     memset(call, 0, n * sizeof(float));

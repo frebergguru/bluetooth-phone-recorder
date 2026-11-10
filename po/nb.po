@@ -855,3 +855,21 @@ msgstr "Språk og tilgjengelighet"
 
 msgid "Stop the recording first, then restart"
 msgstr "Stopp opptaket først, og start deretter på nytt"
+
+msgid "Call waiting"
+msgstr "Samtale venter"
+
+msgid "Call waiting from %s"
+msgstr "Samtale venter fra %s"
+
+msgid "Current call: %s"
+msgstr "Pågående samtale: %s"
+
+msgid "The monitor output could not be opened. Choose another output."
+msgstr "Utgangen for medhøring kunne ikke åpnes. Velg en annen utgang."
+
+msgid "The monitor output stopped working. Choose another output."
+msgstr "Utgangen for medhøring sluttet å virke. Velg en annen utgang."
+
+msgid "Name of this input"
+msgstr "Navnet på denne inngangen"

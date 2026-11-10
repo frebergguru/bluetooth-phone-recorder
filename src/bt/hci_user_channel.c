@@ -7,6 +7,7 @@
 
 #include <errno.h>
 #include <limits.h>
+#include <poll.h>
 #include <spawn.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -161,12 +162,16 @@ static int send_packet(uint8_t packet_type, uint8_t *pkt, int size)
     /* BTstack reserves a pre-buffer byte in front of outgoing packets */
     uint8_t *buf = pkt - 1;
     buf[0] = packet_type;
-    ssize_t w = write(sock, buf, (size_t)size + 1);
-    if (w < 0) {
-        log_error("user channel write: %s", strerror(errno));
-        return -1;
+    for (int attempt = 0; attempt < 20; attempt++) {
+        ssize_t w = write(sock, buf, (size_t)size + 1);
+        if (w >= 0) return 0;
+        if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) break;
+        /* the kernel queue is full for a moment: wait (max 20 x 5 ms) */
+        struct pollfd pfd = {.fd = sock, .events = POLLOUT};
+        poll(&pfd, 1, 5);
     }
-    return 0;
+    log_error("user channel write: %s", strerror(errno));
+    return -1;
 }
 
 static const hci_transport_t transport = {

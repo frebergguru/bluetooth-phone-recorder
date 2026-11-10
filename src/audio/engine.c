@@ -42,6 +42,7 @@ typedef struct endpoint {
     ringbuf_t ring;
     adaptive_rs_t *rs;
     atomic_bool streaming;
+    atomic_bool failed; /* PipeWire reported an error for this stream */
     _Atomic uint64_t xruns;
 } endpoint_t;
 
@@ -79,7 +80,8 @@ struct engine {
 
     phone_link_t link;
     uint32_t link_gen_seen;
-    adaptive_rs_t *phone_rx_rs, *phone_tx_rs;
+    adaptive_rs_t *phone_rx_rs, *phone_tx_rs; /* the pair in use (points into the arrays) */
+    adaptive_rs_t *phone_rx_by_rate[3], *phone_tx_by_rate[3]; /* 8, 16, 32 kHz, made up front */
     uint32_t phone_rate;
     _Atomic uint64_t phone_rx_dropouts;
 
@@ -151,8 +153,10 @@ static void on_state_changed(void *data, enum pw_stream_state old, enum pw_strea
     (void)old;
     endpoint_t *ep = data;
     atomic_store(&ep->streaming, state == PW_STREAM_STATE_STREAMING);
-    if (state == PW_STREAM_STATE_ERROR)
+    if (state == PW_STREAM_STATE_ERROR) {
+        atomic_store(&ep->failed, true);
         LOGW("audio", "stream %s error: %s", ep->node_name, error ? error : "?");
+    }
 }
 
 static const struct pw_stream_events stream_events = {
@@ -336,26 +340,24 @@ int engine_list_devices(engine_t *e, bool sources, engine_device_t *out, int max
 /* Mixer thread                                                        */
 /* ------------------------------------------------------------------ */
 
+static const uint32_t phone_rates[3] = {8000, 16000, 32000};
+
+/* Mixer thread. Only picks one of the resamplers made in engine_new(): no
+ * allocation, no locks, no logging here. */
 static void phone_update_rates(engine_t *e)
 {
     uint32_t gen = atomic_load(&e->link.generation);
     if (gen == e->link_gen_seen && e->phone_rx_rs) return;
     e->link_gen_seen = gen;
     uint32_t rate = atomic_load(&e->link.rate);
-    if (e->phone_rx_rs && rate == e->phone_rate) {
-        ars_reset(e->phone_rx_rs);
-        ars_reset(e->phone_tx_rs);
-    } else {
-        ars_free(e->phone_rx_rs);
-        ars_free(e->phone_tx_rs);
-        size_t target = rate * PHONE_TARGET_MS / 1000;
-        e->phone_rx_rs = ars_new(1, rate, ENGINE_RATE, 10, target, ENGINE_BLOCK * 2);
-        e->phone_tx_rs = ars_new(1, ENGINE_RATE, rate, 10, target, ENGINE_BLOCK * 2);
-        e->phone_rate = rate;
-    }
+    int idx = rate >= 32000 ? 2 : rate >= 16000 ? 1 : 0;
+    e->phone_rx_rs = e->phone_rx_by_rate[idx];
+    e->phone_tx_rs = e->phone_tx_by_rate[idx];
+    e->phone_rate = phone_rates[idx];
+    if (e->phone_rx_rs) ars_reset(e->phone_rx_rs);
+    if (e->phone_tx_rs) ars_reset(e->phone_tx_rs);
     /* mixer is the rx reader: drop whatever is left from before */
     rb_skip(&e->link.rx, rb_available(&e->link.rx));
-    LOGI("audio", "phone audio at %u Hz", rate);
 }
 
 /* Mixer thread, io_lock held. The canceller is created by
@@ -443,7 +445,10 @@ static void mix_block(engine_t *e)
     /* recorder: stereo buffer still holds the full mix. rec_tracks is set
      * only once the recorder is fully started, so all tracks and the frame
      * counter begin on the same block. */
-    if (e->rec_tracks > 0 && recorder_is_running(e->rec)) {
+    if (e->rec_tracks > 0 && recorder_is_running(e->rec) && !recorder_block_fits(e->rec, n)) {
+        /* the disk fell behind: drop this block on every track alike */
+        recorder_drop_block(e->rec);
+    } else if (e->rec_tracks > 0 && recorder_is_running(e->rec)) {
         for (int t = 0; t < e->rec_tracks; t++) {
             int src = e->rec_map[t];
             if (src < 0)
@@ -455,9 +460,24 @@ static void mix_block(engine_t *e)
     }
 }
 
+/* Treat denormal floats as zero in this thread: filter and envelope tails
+ * decaying towards silence would otherwise become very slow to compute. */
+static void enable_flush_to_zero(void)
+{
+#if defined(__SSE__) || defined(__x86_64__)
+    unsigned int csr = __builtin_ia32_stmxcsr();
+    __builtin_ia32_ldmxcsr(csr | 0x8040); /* FTZ (bit 15) and DAZ (bit 6) */
+#elif defined(__aarch64__)
+    uint64_t fpcr;
+    __asm__ volatile("mrs %0, fpcr" : "=r"(fpcr));
+    __asm__ volatile("msr fpcr, %0" : : "r"(fpcr | (1u << 24))); /* FZ */
+#endif
+}
+
 static void *mix_thread_main(void *arg)
 {
     engine_t *e = arg;
+    enable_flush_to_zero();
     struct sched_param sp = {.sched_priority = 20};
     if (pthread_setschedparam(pthread_self(), SCHED_FIFO, &sp) != 0)
         LOGI("audio", "mixer thread runs without real-time priority");
@@ -518,6 +538,26 @@ engine_t *engine_new(const engine_callbacks_t *cb)
         pthread_mutex_destroy(&e->io_lock);
         free(e);
         return NULL;
+    }
+    /* Phone resamplers for every HFP rate, made here so the real-time
+     * mixer thread only has to pick one when a call starts. */
+    for (int i = 0; i < 3; i++) {
+        uint32_t rate = phone_rates[i];
+        size_t target = rate * PHONE_TARGET_MS / 1000;
+        e->phone_rx_by_rate[i] = ars_new(1, rate, ENGINE_RATE, 10, target, ENGINE_BLOCK * 2);
+        e->phone_tx_by_rate[i] = ars_new(1, ENGINE_RATE, rate, 10, target, ENGINE_BLOCK * 2);
+        if (!e->phone_rx_by_rate[i] || !e->phone_tx_by_rate[i]) {
+            for (int j = 0; j <= i; j++) {
+                ars_free(e->phone_rx_by_rate[j]);
+                ars_free(e->phone_tx_by_rate[j]);
+            }
+            recorder_free(e->rec);
+            phone_link_free(&e->link);
+            pthread_mutex_destroy(&e->dev_lock);
+            pthread_mutex_destroy(&e->io_lock);
+            free(e);
+            return NULL;
+        }
     }
     return e;
 }
@@ -604,8 +644,10 @@ void engine_free(engine_t *e)
         pw_thread_loop_destroy(e->loop);
         pw_deinit();
     }
-    ars_free(e->phone_rx_rs);
-    ars_free(e->phone_tx_rs);
+    for (int i = 0; i < 3; i++) {
+        ars_free(e->phone_rx_by_rate[i]);
+        ars_free(e->phone_tx_by_rate[i]);
+    }
     if (e->echo_pp) speex_preprocess_state_destroy(e->echo_pp);
     if (e->echo) speex_echo_state_destroy(e->echo);
     recorder_free(e->rec);
@@ -684,8 +726,11 @@ void engine_remove_input(engine_t *e, int ch)
 int engine_set_input_target(engine_t *e, int ch, const char *target)
 {
     if (ch < 1 || ch >= MIXER_MAX_CHANNELS || !e->inputs[ch].capture) return -1;
+    /* the old and the new stream exist side by side for a moment: give
+     * the new one its own node name */
+    static unsigned switch_count;
     char cap_node[128];
-    snprintf(cap_node, sizeof cap_node, NODE_PREFIX "capture_%d", ch);
+    snprintf(cap_node, sizeof cap_node, NODE_PREFIX "capture_%d.%u", ch, ++switch_count);
     pw_thread_loop_lock(e->loop);
     endpoint_t *cap =
         endpoint_create(e, EP_INPUT, 1, false, cap_node, e->inputs[ch].label, target);
@@ -749,6 +794,15 @@ int engine_set_monitor(engine_t *e, bool enabled, const char *target)
     endpoint_destroy(old);
     pw_thread_loop_unlock(e->loop);
     return 0;
+}
+
+bool engine_monitor_failed(engine_t *e)
+{
+    bool failed = false;
+    pthread_mutex_lock(&e->io_lock);
+    if (e->monitor) failed = atomic_exchange(&e->monitor->failed, false);
+    pthread_mutex_unlock(&e->io_lock);
+    return failed;
 }
 
 void engine_set_echo_cancel(engine_t *e, bool on)

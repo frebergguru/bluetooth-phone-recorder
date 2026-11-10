@@ -423,13 +423,21 @@ void recorder_push(recorder_t *r, int track, const float *frames, size_t n_frame
     if (track < 0 || track >= r->n_tracks) return;
     rec_track_t *t = &r->tracks[track];
     size_t n = n_frames * (size_t)t->spec.channels;
-    if (rb_space(&t->ring) < n) {
-        atomic_fetch_add(&r->overruns, 1);
-        /* keep tracks aligned: write silence of the same length if possible */
-        rb_write_silence(&t->ring, n);
-        return;
-    }
-    rb_write(&t->ring, frames, n);
+    rb_write(&t->ring, frames, n); /* room was checked by recorder_block_fits() */
+}
+
+bool recorder_block_fits(recorder_t *r, size_t n_frames)
+{
+    if (!atomic_load_explicit(&r->running, memory_order_acquire)) return false;
+    for (int i = 0; i < r->n_tracks; i++)
+        if (rb_space(&r->tracks[i].ring) < n_frames * (size_t)r->tracks[i].spec.channels)
+            return false;
+    return true;
+}
+
+void recorder_drop_block(recorder_t *r)
+{
+    atomic_fetch_add(&r->overruns, 1);
 }
 
 void recorder_block_done(recorder_t *r, size_t n_frames)

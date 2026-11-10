@@ -66,6 +66,9 @@ typedef struct {
 
     /* private */
     limiter_t lim_full, lim_call;
+    /* per-block scratch buffers (kept here, not on the real-time stack) */
+    float s_tmp[MIXER_MAX_BLOCK], s_full_l[MIXER_MAX_BLOCK], s_full_r[MIXER_MAX_BLOCK];
+    float s_call[MIXER_MAX_BLOCK], s_solo_l[MIXER_MAX_BLOCK], s_solo_r[MIXER_MAX_BLOCK];
     float g_monitor_s, g_call_s;
     float smooth; /* one-pole coefficient for gain ramps */
 } mixer_t;

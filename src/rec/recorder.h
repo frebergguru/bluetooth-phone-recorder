@@ -44,6 +44,11 @@ bool recorder_is_running(const recorder_t *r);
 
 /* Mixer thread: push one block for a track (interleaved frames). */
 void recorder_push(recorder_t *r, int track, const float *frames, size_t n_frames);
+/* Mixer thread: true if every track has room for n_frames. If not, call
+ * recorder_drop_block() instead of pushing, so all tracks drop the same
+ * block and stay aligned. */
+bool recorder_block_fits(recorder_t *r, size_t n_frames);
+void recorder_drop_block(recorder_t *r);
 /* Mixer thread: call once per block after all tracks were pushed. */
 void recorder_block_done(recorder_t *r, size_t n_frames);
 

@@ -67,6 +67,8 @@ void engine_set_input_label(engine_t *e, int ch, const char *label);
 
 /* Monitor output (headphones). target NULL or "" = system default. */
 int engine_set_monitor(engine_t *e, bool enabled, const char *target);
+/* True once if the monitor output failed since the last call (UI thread). */
+bool engine_monitor_failed(engine_t *e);
 
 /* Echo cancellation on the call bus, for people using speakers. */
 void engine_set_echo_cancel(engine_t *e, bool on);

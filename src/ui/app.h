@@ -55,6 +55,8 @@ typedef struct {
     bool call_timer_running; /* a call is up; stays true while a second call waits */
     char caller_number[64];
     char caller_name[128];
+    char waiting_number[64]; /* second caller while a call is active */
+    char waiting_name[128];
     bool audio_on_computer;
     char codec_name[16];
     int codec_rate;
@@ -62,6 +64,7 @@ typedef struct {
 
     /* recording */
     bool recording;
+    int marker_count; /* markers in the current recording */
     gint64 rec_started_us;
 
     /* mixer strips; index = mixer channel */

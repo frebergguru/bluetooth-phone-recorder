@@ -43,6 +43,7 @@ typedef enum {
     BT_EV_SPEAKER_GAIN,     /* number 0..15 */
     BT_EV_PAIRED_LIST,      /* text = newline separated addresses */
     BT_EV_ERROR,            /* text */
+    BT_EV_CALL_WAITING,     /* a second call while in a call: text = number, text2 = name */
 } bt_event_type_t;
 
 typedef struct {

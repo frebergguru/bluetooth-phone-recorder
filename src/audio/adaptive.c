@@ -61,6 +61,14 @@ adaptive_rs_t *ars_new(int channels, uint32_t in_rate, uint32_t out_rate, int qu
         return NULL;
     }
     speex_resampler_skip_zeros(a->st);
+    /* Pre-warm: speexdsp sizes its filter and history from the ratio and
+     * only ever grows them. Visiting the largest ratio the correction can
+     * reach allocates the worst case now, so retuning in the real-time
+     * thread never allocates. */
+    uint32_t warm = (uint32_t)llround((double)in_rate / out_rate * RATIO_DEN * (1.0 + MAX_CORRECTION * 1.25));
+    speex_resampler_set_rate_frac(a->st, warm, RATIO_DEN, in_rate, out_rate);
+    uint32_t warm_lo = (uint32_t)llround((double)in_rate / out_rate * RATIO_DEN * (1.0 - MAX_CORRECTION * 1.25));
+    speex_resampler_set_rate_frac(a->st, warm_lo, RATIO_DEN, in_rate, out_rate);
     ars_reset(a);
     return a;
 }

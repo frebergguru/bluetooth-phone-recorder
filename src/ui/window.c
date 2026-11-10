@@ -351,7 +351,7 @@ void app_update_call_ui(void)
     if (!APP->window) return;
     const char *status;
     switch (APP->call_state) {
-    case CALL_INCOMING: status = _("Incoming call"); break;
+    case CALL_INCOMING: status = APP->ind_call == 1 ? _("Call waiting") : _("Incoming call"); break;
     case CALL_OUTGOING: status = _("Calling..."); break;
     case CALL_ACTIVE: status = APP->ind_callheld ? _("In call (one call on hold)") : _("In call"); break;
     case CALL_IDLE:
@@ -359,8 +359,16 @@ void app_update_call_ui(void)
     }
     gtk_label_set_text(GTK_LABEL(APP->call_status), status);
 
-    char who[256] = "";
-    if (APP->caller_name[0] && APP->caller_number[0])
+    char who[512] = "";
+    if (APP->call_state == CALL_INCOMING && APP->ind_call == 1) {
+        /* call waiting: show the new caller first, then who is on the line */
+        const char *wn = APP->waiting_name[0] ? APP->waiting_name : APP->waiting_number;
+        const char *cur = APP->caller_name[0] ? APP->caller_name : APP->caller_number;
+        char cur_line[200] = "";
+        if (cur[0]) snprintf(cur_line, sizeof cur_line, _("Current call: %s"), cur);
+        snprintf(who, sizeof who, "%s%s%s", wn[0] ? wn : _("unknown number"),
+                 cur_line[0] ? "\n" : "", cur_line);
+    } else if (APP->caller_name[0] && APP->caller_number[0])
         snprintf(who, sizeof who, "%s\n%s", APP->caller_name, APP->caller_number);
     else
         snprintf(who, sizeof who, "%s", APP->caller_name[0] ? APP->caller_name : APP->caller_number);

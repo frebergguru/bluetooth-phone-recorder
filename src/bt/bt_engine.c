@@ -320,7 +320,10 @@ static void sco_fill_payload(uint8_t *payload, uint16_t len)
         }
         uint16_t avail = hfp_codec_num_bytes_available(&hfp_enc);
         uint16_t chunk = avail < len ? avail : len;
-        if (chunk == 0) break;
+        if (chunk == 0) {
+            memset(payload, 0, len); /* nothing encoded yet: send silence, not old bytes */
+            break;
+        }
         hfp_codec_read_from_stream(&hfp_enc, payload, chunk);
         payload += chunk;
         len -= chunk;
@@ -577,6 +580,7 @@ static void hfp_handler(uint8_t packet_type, uint16_t channel, uint8_t *event, u
         gap_discoverable_control(0);
         gap_remote_name_request(addr, 0, 0);
         hfp_hf_activate_calling_line_notification(acl_handle);
+        hfp_hf_activate_call_waiting_notification(acl_handle); /* +CCWA: who is waiting */
         if (cfg.disable_phone_nrec) hfp_hf_deactivate_echo_canceling_and_noise_reduction(acl_handle);
         break;
     case HFP_SUBEVENT_SERVICE_LEVEL_CONNECTION_RELEASED:
@@ -638,6 +642,15 @@ static void hfp_handler(uint8_t packet_type, uint16_t channel, uint8_t *event, u
                  (const char *)hfp_subevent_calling_line_identification_notification_get_number(event));
         snprintf(ev.text2, sizeof ev.text2, "%s",
                  (const char *)hfp_subevent_calling_line_identification_notification_get_alpha(event));
+        emit(&ev);
+        break;
+    }
+    case HFP_SUBEVENT_CALL_WAITING_NOTIFICATION: {
+        bt_event_t ev = {.type = BT_EV_CALL_WAITING};
+        snprintf(ev.text, sizeof ev.text, "%s",
+                 (const char *)hfp_subevent_call_waiting_notification_get_number(event));
+        snprintf(ev.text2, sizeof ev.text2, "%s",
+                 (const char *)hfp_subevent_call_waiting_notification_get_alpha(event));
         emit(&ev);
         break;
     }
